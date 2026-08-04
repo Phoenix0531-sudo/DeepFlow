@@ -1,0 +1,12 @@
+node_modules/
+dist/
+src-tauri/target/
+data/logs/
+data/*.db
+data/*.db-*
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.auto/
