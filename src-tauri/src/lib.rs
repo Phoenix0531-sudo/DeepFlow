@@ -107,6 +107,18 @@ pub fn run() {
                     }
                 });
 
+                // Vision pipeline events → FSM
+                let (vtx, mut vrx) =
+                    tokio::sync::mpsc::unbounded_channel::<crate::vision::VisionEvent>();
+                state.vision.set_event_sender(vtx);
+                let handle = app.handle().clone();
+                let st = state.clone();
+                tauri::async_runtime::spawn(async move {
+                    while let Some(ev) = vrx.recv().await {
+                        st.handle_vision_event(&handle, ev);
+                    }
+                });
+
                 // Tray
                 let show_i = MenuItem::with_id(app, "show", "打开主界面", true, None::<&str>)?;
                 let settings_i =
@@ -186,6 +198,8 @@ pub fn run() {
             ipc::get_weekly_report,
             ipc::list_running_processes,
             ipc::get_available_cameras,
+            ipc::get_vision_status,
+            ipc::restart_vision,
             ipc::apply_overlay_native_style,
             ipc::open_overlay_window,
             ipc::close_overlay_window,

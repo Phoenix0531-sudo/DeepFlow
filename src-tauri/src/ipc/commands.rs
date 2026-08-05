@@ -136,7 +136,30 @@ pub async fn list_running_processes() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 pub async fn get_available_cameras() -> Result<Vec<String>, String> {
-    crate::vision::CameraController::list_cameras()
+    crate::vision::list_cameras()
+}
+
+#[tauri::command]
+pub async fn get_vision_status(state: S<'_>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({
+        "running": state.vision.is_running(),
+        "enabled": state.load_settings().map(|s| s.vision_enabled).unwrap_or(false),
+    }))
+}
+
+#[tauri::command]
+pub async fn restart_vision(state: S<'_>) -> Result<(), String> {
+    state.vision.stop();
+    let s = state.load_settings()?;
+    if !s.vision_enabled {
+        return Ok(());
+    }
+    let device = if s.camera_name.is_empty() {
+        "0".into()
+    } else {
+        s.camera_name
+    };
+    state.vision.start(&device)
 }
 
 #[tauri::command]

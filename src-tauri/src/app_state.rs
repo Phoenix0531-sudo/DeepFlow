@@ -1,6 +1,7 @@
 use crate::db::{LocalLogger, SettingsRecord, WeeklyReport};
 use crate::fsm::{FsmEvent, FsmSideEffect, SystemFSM, SystemState};
 use crate::ipc::events;
+use crate::vision::{VisionEvent, VisionPipeline};
 use crate::win32::ProcessGuard;
 use parking_lot::Mutex;
 use std::path::PathBuf;
@@ -14,6 +15,7 @@ pub struct AppState {
     pub logger: Arc<Mutex<LocalLogger>>,
     pub data_dir: PathBuf,
     pub process_guard: Arc<Mutex<ProcessGuard>>,
+    pub vision: Arc<VisionPipeline>,
     /// Focus 进入 pause/干预前的 remaining，恢复时加回。
     focus_remaining_snapshot: Arc<Mutex<u32>>,
     today_focus_secs: Arc<Mutex<u32>>,
@@ -34,11 +36,18 @@ impl AppState {
         let names: Vec<String> =
             serde_json::from_str(&settings.whitelist_json).unwrap_or_default();
 
+        let models_dir = data_dir.join("models");
+        let vision = VisionPipeline::new(models_dir, settings.prefer_cpu_inference);
+        vision.set_enabled(settings.vision_enabled);
+        vision.set_debug(settings.debug_mode);
+        vision.set_roi_json(&settings.roi_json);
+
         Ok(Self {
             fsm,
             logger: Arc::new(Mutex::new(logger)),
             data_dir,
             process_guard: Arc::new(Mutex::new(ProcessGuard::new(names))),
+            vision: Arc::new(vision),
             focus_remaining_snapshot: Arc::new(Mutex::new(0)),
             today_focus_secs: Arc::new(Mutex::new(today)),
             settings_cache: Arc::new(Mutex::new(settings)),
@@ -62,6 +71,10 @@ impl AppState {
         self.fsm.set_debt_floor_secs(s.debt_floor_secs);
         let names: Vec<String> = serde_json::from_str(&s.whitelist_json).unwrap_or_default();
         self.process_guard.lock().set_whitelist(names);
+        self.vision.set_enabled(s.vision_enabled);
+        self.vision.set_debug(s.debug_mode);
+        self.vision.set_roi_json(&s.roi_json);
+        self.vision.reload_detector(s.prefer_cpu_inference);
         self.logger
             .lock()
             .save_settings(&s)
@@ -72,6 +85,40 @@ impl AppState {
         }
         let _ = app.emit(events::EVT_DEBUG_LOG, "settings_saved");
         Ok(())
+    }
+
+    pub fn handle_vision_event(&self, app: &AppHandle, ev: VisionEvent) {
+        match ev {
+            VisionEvent::HoldSecs(hold) => {
+                let _ = self.dispatch_and_apply(
+                    app,
+                    FsmEvent::VisionPhoneDetectedUpdate { hold_secs: hold },
+                );
+            }
+            VisionEvent::CameraBlocked => {
+                warn!(target: "deepflow", "camera blocked/covered");
+                let _ = self.dispatch_and_apply(app, FsmEvent::CameraBlockedOrCovered);
+            }
+            VisionEvent::DetectionDebug(d) => {
+                let _ = app.emit(events::EVT_DEBUG_LOG, &d);
+            }
+        }
+    }
+
+    fn start_vision_from_settings(&self) {
+        let s = self.settings_cache.lock().clone();
+        if !s.vision_enabled {
+            info!(target: "deepflow", "vision_enabled=false");
+            return;
+        }
+        let device = if s.camera_name.is_empty() {
+            "0".to_string()
+        } else {
+            s.camera_name.clone()
+        };
+        if let Err(e) = self.vision.start(&device) {
+            warn!(target: "deepflow", "vision start failed: {e}");
+        }
     }
 
     pub fn weekly_report(&self) -> Result<WeeklyReport, String> {
@@ -226,8 +273,11 @@ impl AppState {
                 FsmSideEffect::StopWhitelistMonitor => {
                     *self.whitelist_monitor_on.lock() = false;
                 }
-                FsmSideEffect::StartVision | FsmSideEffect::StopVision => {
-                    // P1
+                FsmSideEffect::StartVision => {
+                    self.start_vision_from_settings();
+                }
+                FsmSideEffect::StopVision => {
+                    self.vision.stop();
                 }
                 FsmSideEffect::PlayChime => {
                     let _ = app.emit(events::EVT_DEBUG_LOG, "play_chime");
