@@ -18,6 +18,8 @@ pub enum SystemState {
     InterventionLevel1 {
         phone_hold_duration_secs: u32,
         session_id: String,
+        /// L1 观察期剩余秒（测试模式 3s / 正常 30s）。
+        observe_remaining_secs: u32,
     },
     InterventionLevel2 {
         phone_hold_duration_secs: u32,
@@ -89,6 +91,10 @@ pub enum FsmEvent {
     ChooseRest,
     ChooseEnd,
     StopSession,
+    /// 测试模式：强制进入 L1/L2/L3（1|2|3）。
+    TestInjectLevel { level: u32 },
+    /// 测试模式：立即结束会话（对话框输入「测试」也可触发）。
+    TestExit,
 }
 
 /// 状态迁移时附带的副作用（写库、开窗等由上层执行）。
@@ -110,4 +116,6 @@ pub enum FsmSideEffect {
     StopVision,
     PlayChime,
     SevereEscalate,
+    /// 前端播放提示音："chime" | "severe" | "inject"
+    PlaySound { kind: String },
 }

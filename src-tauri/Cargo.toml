@@ -27,10 +27,12 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
 once_cell = "1"
-nokhwa = { version = "0.10", default-features = false, features = ["input-msmf"] }
+# decoding = mjpeg (mozjpeg)；关闭 default 后必须显式打开，否则 MJPEG 解码会报 Not available on WASM
+nokhwa = { version = "0.10", default-features = false, features = ["input-msmf", "decoding"] }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 ort = { version = "2.0.0-rc.13", features = ["download-binaries", "ndarray"] }
 ndarray = "0.17"
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

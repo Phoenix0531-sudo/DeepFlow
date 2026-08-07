@@ -15,6 +15,7 @@ pub struct SystemFSM {
     /// 未还债务（进程重启后由上层灌入）。
     pending_debt_secs: Arc<RwLock<u32>>,
     debt_floor_secs: Arc<RwLock<u32>>,
+    test_mode: Arc<RwLock<bool>>,
     /// L1 观察期剩余秒（进入 L1 时置 30）。
     l1_observe_remaining: Arc<RwLock<u32>>,
 }
@@ -34,6 +35,7 @@ impl SystemFSM {
             l3_count_in_session: Arc::new(RwLock::new(0)),
             pending_debt_secs: Arc::new(RwLock::new(0)),
             debt_floor_secs: Arc::new(RwLock::new(DEFAULT_DEBT_FLOOR_SECS)),
+            test_mode: Arc::new(RwLock::new(false)),
             l1_observe_remaining: Arc::new(RwLock::new(0)),
         }
     }
@@ -52,6 +54,24 @@ impl SystemFSM {
 
     pub fn debt_floor_secs(&self) -> u32 {
         *self.debt_floor_secs.read()
+    }
+
+    pub fn set_test_mode(&self, enabled: bool) {
+        *self.test_mode.write() = enabled;
+    }
+
+    pub fn test_mode(&self) -> bool {
+        *self.test_mode.read()
+    }
+
+    /// 返回 (L1, L2, L3, 放下恢复) 阈值秒数。
+    fn vision_thresholds(&self) -> (u32, u32, u32, u32) {
+        if self.test_mode() {
+            // 测试模式：可在约 10 秒内走完 L1→L2→L3
+            (3, 6, 9, 1)
+        } else {
+            (60, 120, 180, 10)
+        }
     }
 
     pub fn set_pending_debt_secs(&self, secs: u32) {
@@ -94,6 +114,8 @@ impl SystemFSM {
         event: FsmEvent,
     ) -> (Option<SystemState>, Vec<FsmSideEffect>) {
         let floor = *self.debt_floor_secs.read();
+        let (l1_threshold, l2_threshold, l3_threshold, release_threshold) =
+            self.vision_thresholds();
 
         match (state, event) {
             // —— 启动 ——
@@ -149,8 +171,17 @@ impl SystemFSM {
                 ],
             ),
 
-            // —— 紧急退出（毁遮罩，回 Idle，债务不在此强制清）——
-            (s, FsmEvent::DoubleEscPressed) if !matches!(s, SystemState::Idle) => {
+            // —— 紧急退出：任意非 Idle → Idle；已 Idle 也强制关遮罩（防卡死）——
+            (SystemState::Idle, FsmEvent::DoubleEscPressed) => (
+                None,
+                vec![
+                    FsmSideEffect::HideOverlay,
+                    FsmSideEffect::HideFloatingClock,
+                    FsmSideEffect::StopWhitelistMonitor,
+                    FsmSideEffect::StopVision,
+                ],
+            ),
+            (s, FsmEvent::DoubleEscPressed) => {
                 let sid = s.session_id().unwrap_or("").to_string();
                 (
                     Some(SystemState::Idle),
@@ -299,18 +330,25 @@ impl SystemFSM {
                 SystemState::FocusActive { session_id, .. },
                 FsmEvent::VisionPhoneDetectedUpdate { hold_secs },
             ) => {
-                if hold_secs >= 60 {
-                    *self.l1_observe_remaining.write() = 30;
+                if hold_secs >= l1_threshold {
+                    let obs = if self.test_mode() { 3 } else { 30 };
+                    *self.l1_observe_remaining.write() = obs;
                     (
                         Some(SystemState::InterventionLevel1 {
                             phone_hold_duration_secs: hold_secs,
                             session_id: session_id.clone(),
+                            observe_remaining_secs: obs,
                         }),
-                        vec![FsmSideEffect::Log {
-                            event_type: "L1".into(),
-                            reason: None,
-                            duration_secs: hold_secs,
-                        }],
+                        vec![
+                            FsmSideEffect::Log {
+                                event_type: "L1".into(),
+                                reason: None,
+                                duration_secs: hold_secs,
+                            },
+                            FsmSideEffect::PlaySound {
+                                kind: "chime".into(),
+                            },
+                        ],
                     )
                 } else {
                     (None, vec![])
@@ -321,10 +359,11 @@ impl SystemFSM {
                 SystemState::InterventionLevel1 {
                     session_id,
                     phone_hold_duration_secs,
+                    observe_remaining_secs,
                 },
                 FsmEvent::VisionPhoneDetectedUpdate { hold_secs },
             ) => {
-                if hold_secs < 10 {
+                if hold_secs < release_threshold {
                     // 放下 → 拉回
                     (
                         Some(SystemState::FocusActive {
@@ -338,7 +377,7 @@ impl SystemFSM {
                             duration_secs: *phone_hold_duration_secs,
                         }],
                     )
-                } else if hold_secs >= 120 {
+                } else if hold_secs >= l2_threshold {
                     (
                         Some(SystemState::InterventionLevel2 {
                             phone_hold_duration_secs: hold_secs,
@@ -351,6 +390,9 @@ impl SystemFSM {
                                 duration_secs: hold_secs,
                             },
                             FsmSideEffect::PlayChime,
+                            FsmSideEffect::PlaySound {
+                                kind: "chime".into(),
+                            },
                         ],
                     )
                 } else {
@@ -358,6 +400,7 @@ impl SystemFSM {
                         Some(SystemState::InterventionLevel1 {
                             phone_hold_duration_secs: hold_secs,
                             session_id: session_id.clone(),
+                            observe_remaining_secs: *observe_remaining_secs,
                         }),
                         vec![],
                     )
@@ -371,7 +414,7 @@ impl SystemFSM {
                 },
                 FsmEvent::VisionPhoneDetectedUpdate { hold_secs },
             ) => {
-                if hold_secs < 10 {
+                if hold_secs < release_threshold {
                     (
                         Some(SystemState::FocusActive {
                             remaining_secs: 0,
@@ -384,7 +427,7 @@ impl SystemFSM {
                             duration_secs: *phone_hold_duration_secs,
                         }],
                     )
-                } else if hold_secs >= 180 {
+                } else if hold_secs >= l3_threshold {
                     self.enter_l3(session_id, hold_secs)
                 } else {
                     (
@@ -405,7 +448,7 @@ impl SystemFSM {
                 },
                 FsmEvent::VisionPhoneDetectedUpdate { hold_secs },
             ) => {
-                if hold_secs < 10 {
+                if hold_secs < release_threshold {
                     (
                         Some(SystemState::FocusActive {
                             remaining_secs: 0,
@@ -436,7 +479,7 @@ impl SystemFSM {
                 | SystemState::InterventionLevel1 { session_id, .. }
                 | SystemState::InterventionLevel2 { session_id, .. },
                 FsmEvent::CameraBlockedOrCovered,
-            ) => self.enter_l3(session_id, 180),
+            ) => self.enter_l3(session_id, l3_threshold),
 
             // L2 知道了：不回 Focus
             (SystemState::InterventionLevel2 { .. }, FsmEvent::AcknowledgeLevel2) => (
@@ -482,11 +525,18 @@ impl SystemFSM {
             ) => {
                 let next_esc = escalate_elapsed_secs.saturating_add(1);
                 let mut effects = vec![];
-                if next_esc == 60 {
+                if next_esc == 60 || (self.test_mode() && next_esc == 5) {
                     effects.push(FsmSideEffect::SevereEscalate);
+                    effects.push(FsmSideEffect::PlaySound {
+                        kind: "severe".into(),
+                    });
                     effects.push(FsmSideEffect::Log {
                         event_type: "SEVERE".into(),
-                        reason: Some("l3_uncooperative_60s".into()),
+                        reason: Some(if self.test_mode() {
+                            "l3_uncooperative_test".into()
+                        } else {
+                            "l3_uncooperative_60s".into()
+                        }),
                         duration_secs: next_esc,
                     });
                 }
@@ -500,13 +550,119 @@ impl SystemFSM {
                 )
             }
 
-            // L1 观察 tick：30s 仍持握则在 vision 更新里升 L2；此处仅递减本地观察
-            (SystemState::InterventionLevel1 { .. }, FsmEvent::InterventionTick) => {
-                let mut obs = self.l1_observe_remaining.write();
-                if *obs > 0 {
-                    *obs -= 1;
+            // L1 观察 tick：递减观察秒并回写状态，便于 UI 显示倒计时
+            (
+                SystemState::InterventionLevel1 {
+                    session_id,
+                    phone_hold_duration_secs,
+                    observe_remaining_secs,
+                },
+                FsmEvent::InterventionTick,
+            ) => {
+                let next_obs = observe_remaining_secs.saturating_sub(1);
+                *self.l1_observe_remaining.write() = next_obs;
+                (
+                    Some(SystemState::InterventionLevel1 {
+                        phone_hold_duration_secs: *phone_hold_duration_secs,
+                        session_id: session_id.clone(),
+                        observe_remaining_secs: next_obs,
+                    }),
+                    vec![],
+                )
+            }
+
+            // —— 测试/强制退出：始终允许关遮罩；非 Idle 则回 Idle ——
+            (SystemState::Idle, FsmEvent::TestExit) => (
+                None,
+                vec![
+                    FsmSideEffect::HideOverlay,
+                    FsmSideEffect::HideFloatingClock,
+                    FsmSideEffect::StopWhitelistMonitor,
+                    FsmSideEffect::StopVision,
+                ],
+            ),
+            (_, FsmEvent::TestExit) => (
+                Some(SystemState::Idle),
+                vec![
+                    FsmSideEffect::Log {
+                        event_type: "TEST_EXIT".into(),
+                        reason: Some("dialog_or_button".into()),
+                        duration_secs: 0,
+                    },
+                    FsmSideEffect::HideOverlay,
+                    FsmSideEffect::HideFloatingClock,
+                    FsmSideEffect::StopWhitelistMonitor,
+                    FsmSideEffect::StopVision,
+                    FsmSideEffect::PlaySound {
+                        kind: "inject".into(),
+                    },
+                ],
+            ),
+
+            (
+                SystemState::FocusActive { session_id, .. }
+                | SystemState::InterventionLevel1 { session_id, .. }
+                | SystemState::InterventionLevel2 { session_id, .. }
+                | SystemState::InterventionLevel3 { session_id, .. },
+                FsmEvent::TestInjectLevel { level },
+            ) if self.test_mode() => {
+                let sid = session_id.clone();
+                match level {
+                    1 => {
+                        let obs = 3;
+                        *self.l1_observe_remaining.write() = obs;
+                        (
+                            Some(SystemState::InterventionLevel1 {
+                                phone_hold_duration_secs: l1_threshold,
+                                session_id: sid,
+                                observe_remaining_secs: obs,
+                            }),
+                            vec![
+                                FsmSideEffect::Log {
+                                    event_type: "TEST_INJECT".into(),
+                                    reason: Some("L1".into()),
+                                    duration_secs: l1_threshold,
+                                },
+                                FsmSideEffect::ShowOverlay,
+                                FsmSideEffect::PlaySound {
+                                    kind: "inject".into(),
+                                },
+                            ],
+                        )
+                    }
+                    2 => (
+                        Some(SystemState::InterventionLevel2 {
+                            phone_hold_duration_secs: l2_threshold,
+                            session_id: sid,
+                        }),
+                        vec![
+                            FsmSideEffect::Log {
+                                event_type: "TEST_INJECT".into(),
+                                reason: Some("L2".into()),
+                                duration_secs: l2_threshold,
+                            },
+                            FsmSideEffect::ShowOverlay,
+                            FsmSideEffect::PlayChime,
+                            FsmSideEffect::PlaySound {
+                                kind: "chime".into(),
+                            },
+                        ],
+                    ),
+                    3 => {
+                        let (st, mut eff) = self.enter_l3(&sid, l3_threshold);
+                        eff.push(FsmSideEffect::Log {
+                            event_type: "TEST_INJECT".into(),
+                            reason: Some("L3".into()),
+                            duration_secs: l3_threshold,
+                        });
+                        eff.push(FsmSideEffect::ShowOverlay);
+                        eff.push(FsmSideEffect::PlaySound {
+                            kind: "severe".into(),
+                        });
+                        (st, eff)
+                    }
+                    _ => (None, vec![]),
                 }
-                (None, vec![])
             }
 
             // 到点三选一

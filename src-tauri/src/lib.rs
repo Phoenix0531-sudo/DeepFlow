@@ -2,6 +2,7 @@ mod app_state;
 mod db;
 mod fsm;
 mod ipc;
+mod report;
 mod vision;
 mod win32;
 
@@ -17,7 +18,75 @@ use tauri::{
 use tracing_subscriber::{fmt, EnvFilter};
 use win32::{KeyHookManager, KeyboardHookEvent};
 
+fn is_dev_exe(exe: &std::path::Path) -> bool {
+    // cargo/tauri 构建产物：.../target/debug|release/...
+    let mut saw_target = false;
+    for comp in exe.components() {
+        let s = comp.as_os_str().to_string_lossy().to_ascii_lowercase();
+        if s == "target" {
+            saw_target = true;
+            continue;
+        }
+        if saw_target && (s == "debug" || s == "release") {
+            return true;
+        }
+    }
+    false
+}
+
 fn data_dir() -> PathBuf {
+    // 1) 显式覆盖
+    if let Ok(p) = std::env::var("DEEPFLOW_DATA_DIR") {
+        let pb = PathBuf::from(p);
+        let _ = std::fs::create_dir_all(&pb);
+        return pb;
+    }
+
+    let exe = std::env::current_exe().ok();
+    let dev = exe.as_ref().map(|p| is_dev_exe(p)).unwrap_or(false);
+
+    // 2) 开发：仓库/cwd data 优先（固定路径仅作 dev 兜底）
+    if dev {
+        if let Ok(cwd) = std::env::current_dir() {
+            for cand in [
+                cwd.join("data"),
+                cwd.join("..").join("data"),
+                cwd.join("..").join("..").join("data"),
+            ] {
+                if cand.is_dir() {
+                    return cand.canonicalize().unwrap_or(cand);
+                }
+            }
+        }
+        let repo = PathBuf::from(r"D:\3_Code_Projects\DeepFlow\data");
+        if repo.is_dir() {
+            return repo;
+        }
+    }
+
+    // 3) 正式安装：%LOCALAPPDATA%\DeepFlow\data（可写、不污染 Program Files）
+    if !dev {
+        if let Ok(la) = std::env::var("LOCALAPPDATA") {
+            let dir = PathBuf::from(la).join("DeepFlow").join("data");
+            if std::fs::create_dir_all(&dir).is_ok() {
+                return dir;
+            }
+        }
+        // 回退：exe 旁 data（便携模式）
+        if let Some(parent) = exe.as_ref().and_then(|p| p.parent()) {
+            let beside = parent.join("data");
+            if std::fs::create_dir_all(&beside).is_ok() {
+                return beside;
+            }
+        }
+    }
+
+    // 4) 最后兜底
+    if let Some(parent) = exe.as_ref().and_then(|p| p.parent()) {
+        let beside = parent.join("data");
+        let _ = std::fs::create_dir_all(&beside);
+        return beside;
+    }
     PathBuf::from(r"D:\3_Code_Projects\DeepFlow\data")
 }
 
@@ -55,6 +124,10 @@ pub fn run() {
     init_logging(&data, boot_debug);
 
     let state = AppState::new(data).expect("failed to init AppState");
+    // 启动时同步紧急键模式（可在 save_settings 热更新）
+    if let Ok(s) = state.load_settings() {
+        win32::set_emergency_hotkey(&s.emergency_hotkey);
+    }
     let state = Arc::new(state);
 
     tauri::Builder::default()
@@ -76,7 +149,7 @@ pub fn run() {
                     while let Some(ev) = rx.recv().await {
                         match ev {
                             KeyboardHookEvent::EmergencyEscapeTriggered => {
-                                tracing::warn!("emergency double-esc");
+                                tracing::warn!("emergency hotkey triggered");
                                 let _ = st.dispatch_and_apply(&handle, FsmEvent::DoubleEscPressed);
                             }
                         }
@@ -189,6 +262,9 @@ pub fn run() {
             ipc::resume_focus_session,
             ipc::skip_debt_and_resume,
             ipc::stop_session,
+            ipc::test_inject_level,
+            ipc::test_exit_session,
+            ipc::force_exit_session,
             ipc::acknowledge_level2,
             ipc::submit_l3_reason,
             ipc::choose_session_end,
@@ -196,10 +272,15 @@ pub fn run() {
             ipc::save_settings,
             ipc::get_today_focus_secs,
             ipc::get_weekly_report,
+            ipc::export_weekly_report_png,
+            ipc::get_data_dir,
             ipc::list_running_processes,
             ipc::get_available_cameras,
             ipc::get_vision_status,
+            ipc::get_vision_preview,
             ipc::restart_vision,
+            ipc::start_vision_preview,
+            ipc::stop_vision_preview,
             ipc::apply_overlay_native_style,
             ipc::open_overlay_window,
             ipc::close_overlay_window,

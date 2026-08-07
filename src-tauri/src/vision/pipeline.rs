@@ -1,8 +1,10 @@
 use super::camera_stream::CameraController;
 use super::detector::{is_operating_phone, Detector, Detection, HybridDetector};
 use super::sliding_window::SlidingWindowFilter;
+use image::{ImageBuffer, ImageEncoder, Rgb};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -80,6 +82,13 @@ pub struct VisionPipeline {
     last_ok_frame: Arc<Mutex<std::time::Instant>>,
     consecutive_frame_fail: Arc<Mutex<u32>>,
     debug: Arc<AtomicBool>,
+    /// 最近一次 hold 秒数（滑动窗）。
+    last_hold_secs: Arc<Mutex<u32>>,
+    /// 缩略 JPEG 预览（setup / UI 轮询）。
+    last_preview_jpeg: Arc<Mutex<Option<Vec<u8>>>>,
+    last_detection: Arc<Mutex<Option<Detection>>>,
+    /// 当前已启动的摄像头设备标识。
+    active_device: Arc<Mutex<Option<String>>>,
 }
 
 impl VisionPipeline {
@@ -98,7 +107,35 @@ impl VisionPipeline {
             last_ok_frame: Arc::new(Mutex::new(std::time::Instant::now())),
             consecutive_frame_fail: Arc::new(Mutex::new(0)),
             debug: Arc::new(AtomicBool::new(false)),
+            last_hold_secs: Arc::new(Mutex::new(0)),
+            last_preview_jpeg: Arc::new(Mutex::new(None)),
+            last_detection: Arc::new(Mutex::new(None)),
+            active_device: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub fn active_device(&self) -> Option<String> {
+        self.active_device.lock().clone()
+    }
+
+    pub fn detector_kind(&self) -> String {
+        self.detector.lock().kind().to_string()
+    }
+
+    pub fn last_hold_secs(&self) -> u32 {
+        *self.last_hold_secs.lock()
+    }
+
+    pub fn last_detection(&self) -> Option<Detection> {
+        self.last_detection.lock().clone()
+    }
+
+    pub fn preview_jpeg(&self) -> Option<Vec<u8>> {
+        self.last_preview_jpeg.lock().clone()
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::SeqCst)
     }
 
     pub fn set_event_sender(&self, tx: UnboundedSender<VisionEvent>) {
@@ -111,6 +148,17 @@ impl VisionPipeline {
 
     pub fn set_debug(&self, on: bool) {
         self.debug.store(on, Ordering::SeqCst);
+    }
+
+    /// 测试模式：更快防抖 / 更快放下恢复。
+    pub fn set_test_mode(&self, on: bool) {
+        let mut f = self.filter.lock();
+        *f = if on {
+            SlidingWindowFilter::for_test_mode()
+        } else {
+            SlidingWindowFilter::new()
+        };
+        *self.last_hold_secs.lock() = 0;
     }
 
     pub fn set_roi_json(&self, json: &str) {
@@ -133,10 +181,21 @@ impl VisionPipeline {
             return Ok(());
         }
         if self.running.load(Ordering::SeqCst) {
-            return Ok(());
+            let same = self
+                .active_device
+                .lock()
+                .as_ref()
+                .map(|d| d == device)
+                .unwrap_or(false);
+            if same {
+                return Ok(());
+            }
+            // 设备切换：先停再启
+            self.stop();
         }
 
         self.filter.lock().reset();
+        *self.active_device.lock() = Some(device.to_string());
         *self.last_ok_frame.lock() = std::time::Instant::now();
         *self.consecutive_frame_fail.lock() = 0;
 
@@ -148,9 +207,14 @@ impl VisionPipeline {
         let fail_count = self.consecutive_frame_fail.clone();
         let debug = self.debug.clone();
         let running = self.running.clone();
+        let last_hold = self.last_hold_secs.clone();
+        let last_preview = self.last_preview_jpeg.clone();
+        let last_det = self.last_detection.clone();
 
-        // 降采样：每 N 帧推理一次，目标 ~10fps 处理
+        // 降采样：每 N 帧推理一次；预览更低频
+        // 持握秒数已改墙钟累计，不再依赖假定 fps
         let process_every = 2u32;
+        let preview_every = 3u32;
         let frame_i = Arc::new(Mutex::new(0u32));
 
         let device = device.to_string();
@@ -162,14 +226,24 @@ impl VisionPipeline {
 
             let mut fi = frame_i.lock();
             *fi = fi.wrapping_add(1);
-            if *fi % process_every != 0 {
+            let n = *fi;
+            drop(fi);
+
+            // UI 预览：更低频 JPEG，避免拖垮 CPU
+            if n % preview_every == 0 {
+                if let Some(jpeg) = encode_preview_jpeg(w, h, &rgb, 320) {
+                    *last_preview.lock() = Some(jpeg);
+                }
+            }
+
+            if n % process_every != 0 {
                 return;
             }
-            drop(fi);
 
             let (cw, ch, cropped) = roi.lock().crop_rgb(w, h, &rgb);
             let det = detector.lock().detect_rgb(cw, ch, &cropped);
             let positive = is_operating_phone(&det);
+            *last_det.lock() = Some(det.clone());
 
             if debug.load(Ordering::SeqCst) {
                 if let Some(ref tx) = event_tx {
@@ -187,9 +261,19 @@ impl VisionPipeline {
                 );
             }
 
-            if let Some(hold) = filter.lock().push_frame_result(positive) {
-                if let Some(ref tx) = event_tx {
-                    let _ = tx.send(VisionEvent::HoldSecs(hold));
+            // 墙钟累计：每帧刷新 last_hold；秒数变化才发 FSM 事件
+            {
+                let mut filt = filter.lock();
+                let changed = filt.push_frame_result(positive);
+                let cur = filt.current_hold_secs();
+                *last_hold.lock() = cur;
+                if let Some(hold) = changed {
+                    if let Some(ref tx) = event_tx {
+                        let _ = tx.send(VisionEvent::HoldSecs(hold));
+                    }
+                } else if cur > 0 {
+                    // 同秒内也周期性上报，避免只在秒边界才触发阈值判断
+                    // （process 降采样后一秒内可能只有 1 帧，changed 已覆盖）
                 }
             }
         })?;
@@ -226,6 +310,30 @@ impl VisionPipeline {
         self.running.store(false, Ordering::SeqCst);
         self.camera.stop();
         self.filter.lock().reset();
+        *self.last_hold_secs.lock() = 0;
+        *self.last_preview_jpeg.lock() = None;
+        *self.last_detection.lock() = None;
+        *self.active_device.lock() = None;
         info!(target: "deepflow", "vision pipeline stopped");
     }
+}
+
+fn encode_preview_jpeg(width: u32, height: u32, rgb: &[u8], max_w: u32) -> Option<Vec<u8>> {
+    if width == 0 || height == 0 || rgb.len() < (width * height * 3) as usize {
+        return None;
+    }
+    let img = ImageBuffer::<Rgb<u8>, _>::from_raw(width, height, rgb.to_vec())?;
+    let scale = (max_w as f32 / width as f32).min(1.0);
+    let nw = ((width as f32) * scale).round().max(1.0) as u32;
+    let nh = ((height as f32) * scale).round().max(1.0) as u32;
+    let resized = if nw == width && nh == height {
+        img
+    } else {
+        image::imageops::resize(&img, nw, nh, image::imageops::FilterType::Triangle)
+    };
+    let mut buf = Cursor::new(Vec::new());
+    let enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, 70);
+    enc.write_image(resized.as_raw(), nw, nh, image::ExtendedColorType::Rgb8)
+        .ok()?;
+    Some(buf.into_inner())
 }

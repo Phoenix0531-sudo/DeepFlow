@@ -1,84 +1,122 @@
-/// 帧级防抖约 0.5s，秒级滑动窗 60s，离开延迟 2s。
-const DEFAULT_FPS: usize = 10;
-const DEFAULT_DEBOUNCE_FRAMES: usize = 5; // ~0.5s @10fps
-const DEFAULT_WINDOW_SECS: usize = 60;
-const LEAVE_LATCH_FRAMES: usize = 20; // ~2s @10fps
+/// 帧级防抖 + 真实时间累计持握秒数。
+///
+/// 旧实现按「假定 10fps 凑满 1 秒」计 hold，实际 process_every 降采样后
+/// 有效 fps 更低，导致 5 秒真持握只累计到 1–2s，测试模式 L1=3 永远达不到。
+/// 现改为：防抖仍用帧计数；一旦 latched，用墙钟累计 hold_secs。
+use std::time::Instant;
+
+const DEFAULT_DEBOUNCE_FRAMES: usize = 3; // ~0.4s @ ~7fps processed
+const DEFAULT_LEAVE_LATCH_SECS: f32 = 1.5;
+const DEFAULT_WINDOW_SECS: u32 = 60;
 
 pub struct SlidingWindowFilter {
-    fps: usize,
     debounce_threshold_count: usize,
-    sliding_capacity_secs: usize,
-    leave_latch_frames: usize,
-    frame_buffer: Vec<bool>,
+    leave_latch_secs: f32,
+    sliding_capacity_secs: u32,
     consecutive_positive: usize,
-    consecutive_negative: usize,
-    /// 当前是否处于「有效持握」锁存（离开需连续负帧才解除）。
+    /// 最近一次变为负帧的时刻（用于离开延迟）。
+    negative_since: Option<Instant>,
     latched: bool,
-    second_buffer: Vec<bool>,
+    /// latched 后开始累计的时刻。
+    hold_started: Option<Instant>,
+    /// 本段已确认的 hold 秒（整数，单调不减直到 reset/离开）。
+    /// 连续 hold 超过 sliding_capacity_secs 时封顶。
+    last_emitted_hold: u32,
 }
 
 impl SlidingWindowFilter {
     pub fn new() -> Self {
-        Self::with_params(DEFAULT_FPS, DEFAULT_DEBOUNCE_FRAMES, DEFAULT_WINDOW_SECS)
+        Self::with_params(DEFAULT_DEBOUNCE_FRAMES, DEFAULT_LEAVE_LATCH_SECS, DEFAULT_WINDOW_SECS)
     }
 
-    pub fn with_params(fps: usize, debounce_frames: usize, window_secs: usize) -> Self {
+    pub fn with_params(
+        debounce_frames: usize,
+        leave_latch_secs: f32,
+        window_secs: u32,
+    ) -> Self {
         Self {
-            fps: fps.max(1),
             debounce_threshold_count: debounce_frames.max(1),
+            leave_latch_secs: leave_latch_secs.max(0.2),
             sliding_capacity_secs: window_secs.max(1),
-            leave_latch_frames: LEAVE_LATCH_FRAMES,
-            frame_buffer: Vec::with_capacity(fps.max(1)),
             consecutive_positive: 0,
-            consecutive_negative: 0,
+            negative_since: None,
             latched: false,
-            second_buffer: Vec::with_capacity(window_secs.max(1)),
+            hold_started: None,
+            last_emitted_hold: 0,
         }
+    }
+
+    /// 测试模式：更快进入 / 更快放下恢复。
+    pub fn for_test_mode() -> Self {
+        Self::with_params(2, 0.6, 30)
     }
 
     pub fn reset(&mut self) {
-        self.frame_buffer.clear();
-        self.second_buffer.clear();
         self.consecutive_positive = 0;
-        self.consecutive_negative = 0;
+        self.negative_since = None;
         self.latched = false;
+        self.hold_started = None;
+        self.last_emitted_hold = 0;
     }
 
-    /// 推入一帧检测结果。每满约 1 秒返回一次 hold_secs（60s 窗内违规秒数）。
+    /// 推入一帧检测结果。hold 秒变化时返回 Some(hold_secs)。
     pub fn push_frame_result(&mut self, positive: bool) -> Option<u32> {
+        let now = Instant::now();
+
         if positive {
             self.consecutive_positive = self.consecutive_positive.saturating_add(1);
-            self.consecutive_negative = 0;
-            if self.consecutive_positive >= self.debounce_threshold_count {
+            self.negative_since = None;
+            if !self.latched && self.consecutive_positive >= self.debounce_threshold_count {
                 self.latched = true;
+                self.hold_started = Some(now);
+                self.last_emitted_hold = 0;
             }
         } else {
             self.consecutive_positive = 0;
-            self.consecutive_negative = self.consecutive_negative.saturating_add(1);
-            if self.consecutive_negative >= self.leave_latch_frames {
-                self.latched = false;
+            if self.latched {
+                let since = self.negative_since.get_or_insert(now);
+                if since.elapsed().as_secs_f32() >= self.leave_latch_secs {
+                    self.latched = false;
+                    self.hold_started = None;
+                    self.negative_since = None;
+                    self.last_emitted_hold = 0;
+                    return Some(0);
+                }
+            } else {
+                self.negative_since = None;
             }
         }
 
-        let frame_pos = self.latched;
-        self.frame_buffer.push(frame_pos);
-
-        if self.frame_buffer.len() >= self.fps {
-            let threshold = self.fps / 2 + 1;
-            let second_has = self.frame_buffer.iter().filter(|&&x| x).count() >= threshold;
-            self.frame_buffer.clear();
-            self.second_buffer.push(second_has);
-            if self.second_buffer.len() > self.sliding_capacity_secs {
-                self.second_buffer.remove(0);
+        if self.latched {
+            if let Some(start) = self.hold_started {
+                let hold = start
+                    .elapsed()
+                    .as_secs()
+                    .min(self.sliding_capacity_secs as u64) as u32;
+                // 至少在 latch 当帧报 1，避免 0→阈值 空窗过长
+                let hold = hold.max(1);
+                if hold != self.last_emitted_hold {
+                    self.last_emitted_hold = hold;
+                    return Some(hold);
+                }
             }
-            let total = self.second_buffer.iter().filter(|&&x| x).count() as u32;
-            return Some(total);
         }
+
         None
     }
 
     pub fn current_hold_secs(&self) -> u32 {
-        self.second_buffer.iter().filter(|&&x| x).count() as u32
+        if !self.latched {
+            return 0;
+        }
+        if let Some(start) = self.hold_started {
+            return start
+                .elapsed()
+                .as_secs()
+                .min(self.sliding_capacity_secs as u64)
+                .max(1) as u32;
+        }
+        self.last_emitted_hold
     }
 }
 
@@ -93,14 +131,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn accumulates_hold_after_debounce() {
-        let mut f = SlidingWindowFilter::with_params(5, 2, 10);
-        // 2 帧正 → latch
+    fn latches_and_reports_hold() {
+        let mut f = SlidingWindowFilter::with_params(2, 0.5, 10);
+        // 未防抖完成前不应 hold
         assert!(f.push_frame_result(true).is_none());
-        let mut last = None;
-        for _ in 0..20 {
-            last = f.push_frame_result(true);
-        }
-        assert!(last.unwrap_or(0) >= 1);
+        // 第 2 正帧 latch → hold>=1
+        let h = f.push_frame_result(true);
+        assert_eq!(h, Some(1));
+        assert!(f.current_hold_secs() >= 1);
+    }
+
+    #[test]
+    fn release_resets_hold() {
+        // with_params 会把 leave_latch 下限钳到 0.2s
+        let mut f = SlidingWindowFilter::with_params(1, 0.2, 10);
+        assert_eq!(f.push_frame_result(true), Some(1));
+        // 刚转负：尚未满 leave_latch，不应释放
+        assert_eq!(f.push_frame_result(false), None);
+        assert!(f.current_hold_secs() >= 1);
+        // 等待超过 leave_latch 后再推负帧 → 释放
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        assert_eq!(f.push_frame_result(false), Some(0));
+        assert_eq!(f.current_hold_secs(), 0);
+    }
+
+    #[test]
+    fn wall_clock_accumulates_independent_of_fps() {
+        // 旧帧计数实现：2s 内若只推 2 帧，hold 只有 0–1。
+        // 墙钟实现：哪怕帧极少，as_secs 也应跟真实时间走。
+        // 注意 Instant::as_secs 向下取整，需 >2s 才能从 1 跳到 2。
+        let mut f = SlidingWindowFilter::with_params(1, 0.3, 60);
+        assert_eq!(f.push_frame_result(true), Some(1));
+        std::thread::sleep(std::time::Duration::from_millis(2100));
+        // 仅再推 1 帧（模拟极低有效 fps）
+        let h = f.push_frame_result(true);
+        assert!(h.is_some(), "should emit hold change after >2s");
+        let hold = h.unwrap();
+        assert!(
+            hold >= 2,
+            "wall-clock hold should be >=2 after 2.1s, got {hold}"
+        );
+        assert!(f.current_hold_secs() >= 2);
     }
 }

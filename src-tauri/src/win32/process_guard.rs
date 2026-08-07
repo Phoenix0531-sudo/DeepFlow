@@ -34,6 +34,30 @@ impl ProcessGuard {
             "taskmgr.exe",
             "deepflow.exe",
             "deepflow",
+            // Xbox / Game Input 后台服务，非分心应用
+            "gameinputsvc.exe",
+            "gameinputredistservice.exe",
+            "gamebar.exe",
+            "gamebarftserver.exe",
+            "gamingservices.exe",
+            "gamingservicesnet.exe",
+            "searchhost.exe",
+            "startmenuexperiencehost.exe",
+            "shellexperiencehost.exe",
+            "runtimebroker.exe",
+            "applicationframehost.exe",
+            "textinputhost.exe",
+            "conhost.exe",
+            "fontdrvhost.exe",
+            "dllhost.exe",
+            "wmiprvse.exe",
+            "audiodg.exe",
+            "smartscreen.exe",
+            "securityhealthservice.exe",
+            "msmpeng.exe",
+            "nvidia share.exe",
+            "nvcontainer.exe",
+            "jhi_service.exe",
         ] {
             implicit.insert(n.to_string());
         }
@@ -134,13 +158,44 @@ impl ProcessGuard {
 }
 
 fn is_likely_distraction(name: &str) -> bool {
+    // 系统 / 驱动 / 输入法噪音：直接忽略
+    const NOISE: &[&str] = &[
+        "gameinput",
+        "gamingservices",
+        "nvidia",
+        "nvcontainer",
+        "nvdisplay",
+        "igfx",
+        "intel",
+        "realtek",
+        "radeon",
+        "amd ",
+        "service",
+        "helper",
+        "update",
+        "crashpad",
+        "cefsharp",
+        "chp",
+        "widget",
+        "crossdevice",
+        "phoneexperience",
+        "yourphone",
+        "compattelrunner",
+        "backgroundtaskhost",
+        "systemsettings",
+        "searchapp",
+        "lockapp",
+    ];
+    if NOISE.iter().any(|n| name.contains(n)) {
+        return false;
+    }
+
     const HINTS: &[&str] = &[
         "wechat",
         "weixin",
         "qq.exe",
         "discord",
         "steam",
-        "game",
         "telegram",
         "slack",
         "spotify",
@@ -150,13 +205,24 @@ fn is_likely_distraction(name: &str) -> bool {
         "douyin",
         "tiktok",
         "bilibili",
+        "youtub",
+        "netflix",
+        "i4tools",
+        "todesk",
+        "sunlogin",
+        "lol",
+        "league",
+        "valorant",
+        "cs2",
+        "genshin",
+        "epicgames",
+        "origin.exe",
+        "battle.net",
     ];
-    // 若白名单未包含浏览器，浏览器也会被报——符合「白名单外即违规」；
-    // HINTS 仅用于降低系统服务噪音：非 hint 且非常见名则忽略。
+    // 白名单外浏览器/社交/游戏才报；不含宽泛 "game" 以免误伤 GameInput 服务
     if HINTS.iter().any(|h| name.contains(h)) {
         return true;
     }
-    // 未知 exe：保守不报，避免海量 svchost 变种
     false
 }
 

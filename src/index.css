@@ -2,7 +2,18 @@
 
 :root {
   color-scheme: dark;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --df-bg: #0b0f14;
+  --df-panel: #121821;
+  --df-panel-2: #171e28;
+  --df-border: rgba(255, 255, 255, 0.08);
+  --df-text: #e8eef6;
+  --df-muted: #8b98a8;
+  --df-accent: #d4a017;
+  --df-accent-2: #3d8bfd;
+  --df-ok: #3ecf8e;
+  --df-warn: #e6a23c;
+  --df-danger: #e85d5d;
 }
 
 html,
@@ -12,24 +23,69 @@ body,
   height: 100%;
   margin: 0;
   background: transparent;
+  color: var(--df-text);
 }
 
 body {
   overflow: hidden;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 @keyframes breath {
   0%,
   100% {
-    opacity: 0.35;
+    opacity: 0.28;
     transform: scale(1);
   }
   50% {
-    opacity: 0.7;
-    transform: scale(1.08);
+    opacity: 0.55;
+    transform: scale(1.04);
   }
 }
 
 .animate-breath {
-  animation: breath 2.4s ease-in-out infinite;
+  animation: breath 2.8s ease-in-out infinite;
+}
+
+.df-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.df-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+.df-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.df-panel {
+  background: linear-gradient(180deg, rgba(23, 30, 40, 0.96), rgba(14, 19, 26, 0.98));
+  border: 1px solid var(--df-border);
+}
+
+.df-chip {
+  border: 1px solid var(--df-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.df-btn {
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.df-btn:active {
+  transform: translateY(1px);
+}
+
+.df-input {
+  background: #0d131b;
+  border: 1px solid var(--df-border);
+  color: var(--df-text);
+}
+.df-input:focus {
+  outline: none;
+  border-color: rgba(212, 160, 23, 0.55);
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.12);
 }

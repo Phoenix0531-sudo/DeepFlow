@@ -32,6 +32,7 @@ impl AppState {
         let fsm = Arc::new(SystemFSM::new());
         fsm.set_debt_floor_secs(settings.debt_floor_secs);
         fsm.set_pending_debt_secs(settings.pending_debt_secs);
+        fsm.set_test_mode(settings.test_mode);
 
         let names: Vec<String> =
             serde_json::from_str(&settings.whitelist_json).unwrap_or_default();
@@ -40,6 +41,7 @@ impl AppState {
         let vision = VisionPipeline::new(models_dir, settings.prefer_cpu_inference);
         vision.set_enabled(settings.vision_enabled);
         vision.set_debug(settings.debug_mode);
+        vision.set_test_mode(settings.test_mode);
         vision.set_roi_json(&settings.roi_json);
 
         Ok(Self {
@@ -69,12 +71,16 @@ impl AppState {
 
     pub fn save_settings(&self, app: &AppHandle, s: SettingsRecord) -> Result<(), String> {
         self.fsm.set_debt_floor_secs(s.debt_floor_secs);
+        self.fsm.set_test_mode(s.test_mode);
         let names: Vec<String> = serde_json::from_str(&s.whitelist_json).unwrap_or_default();
         self.process_guard.lock().set_whitelist(names);
         self.vision.set_enabled(s.vision_enabled);
         self.vision.set_debug(s.debug_mode);
+        self.vision.set_test_mode(s.test_mode);
         self.vision.set_roi_json(&s.roi_json);
         self.vision.reload_detector(s.prefer_cpu_inference);
+        // P2：紧急键热更新（不重装 WH_KEYBOARD_LL）
+        crate::win32::set_emergency_hotkey(&s.emergency_hotkey);
         self.logger
             .lock()
             .save_settings(&s)
@@ -85,6 +91,13 @@ impl AppState {
         }
         let _ = app.emit(events::EVT_DEBUG_LOG, "settings_saved");
         Ok(())
+    }
+
+    pub fn export_weekly_png(&self) -> Result<String, String> {
+        let report = self.weekly_report()?;
+        let exports = self.data_dir.join("exports");
+        let path = crate::report::export_weekly_png(&report, &exports)?;
+        Ok(path.to_string_lossy().into_owned())
     }
 
     pub fn handle_vision_event(&self, app: &AppHandle, ev: VisionEvent) {
@@ -140,6 +153,7 @@ impl AppState {
                 FsmEvent::UserRequestPause { .. }
                     | FsmEvent::CameraBlockedOrCovered
                     | FsmEvent::VisionPhoneDetectedUpdate { .. }
+                    | FsmEvent::TestInjectLevel { .. }
             ) {
                 *self.focus_remaining_snapshot.lock() = *remaining_secs;
             }
@@ -248,13 +262,18 @@ impl AppState {
                 FsmSideEffect::ShowOverlay => {
                     let app2 = app.clone();
                     tauri::async_runtime::spawn(async move {
-                        let _ = crate::ipc::open_overlay_window(app2).await;
+                        if let Err(e) = crate::ipc::open_overlay_window(app2.clone()).await {
+                            warn!(target: "deepflow", "ShowOverlay failed: {e}");
+                            // 二次尝试：先藏再开，避免坏掉的 webview 句柄
+                            crate::ipc::force_hide_overlay(&app2);
+                            let _ = crate::ipc::open_overlay_window(app2).await;
+                        }
                     });
                 }
                 FsmSideEffect::HideOverlay => {
-                    if let Some(w) = app.get_webview_window("overlay") {
-                        let _ = w.close();
-                    }
+                    // 优先 hide 保活 webview，避免 close 后 invoke 报
+                    // "failed to acquire webview reference" 且窗体残留卡死
+                    crate::ipc::force_hide_overlay(app);
                 }
                 FsmSideEffect::ShowFloatingClock => {
                     let app2 = app.clone();
@@ -263,9 +282,7 @@ impl AppState {
                     });
                 }
                 FsmSideEffect::HideFloatingClock => {
-                    if let Some(w) = app.get_webview_window("floating-clock") {
-                        let _ = w.close();
-                    }
+                    crate::ipc::force_hide_floating(app);
                 }
                 FsmSideEffect::StartWhitelistMonitor => {
                     *self.whitelist_monitor_on.lock() = true;
@@ -280,10 +297,18 @@ impl AppState {
                     self.vision.stop();
                 }
                 FsmSideEffect::PlayChime => {
+                    let _ = app.emit(events::EVT_PLAY_SOUND, "chime");
                     let _ = app.emit(events::EVT_DEBUG_LOG, "play_chime");
                 }
                 FsmSideEffect::SevereEscalate => {
+                    let _ = app.emit(events::EVT_PLAY_SOUND, "severe");
                     let _ = app.emit(events::EVT_DEBUG_LOG, "severe_escalate");
+                }
+                FsmSideEffect::PlaySound { kind } => {
+                    let _ = app.emit(events::EVT_PLAY_SOUND, &kind);
+                    if self.settings_cache.lock().debug_mode {
+                        let _ = app.emit(events::EVT_DEBUG_LOG, format!("play_sound:{kind}"));
+                    }
                 }
             }
         }
@@ -327,14 +352,41 @@ impl AppState {
             return;
         }
         let hits = self.process_guard.lock().scan_violations();
-        if !hits.is_empty() {
-            let _ = app.emit(events::EVT_WHITELIST_HIT, &hits);
-            if self.settings_cache.lock().debug_mode {
-                for h in &hits {
-                    debug!(target: "deepflow", "whitelist hit {} pid={}", h.process_name, h.pid);
-                }
+        if hits.is_empty() {
+            return;
+        }
+        // 按进程名去重，避免同一浏览器几十个 pid 刷爆日志/UI
+        let mut seen = std::collections::BTreeSet::new();
+        let mut compact: Vec<_> = Vec::new();
+        for h in hits {
+            if seen.insert(h.process_name.clone()) {
+                compact.push(h);
             }
         }
+        let _ = app.emit(events::EVT_WHITELIST_HIT, &compact);
+        if self.settings_cache.lock().debug_mode {
+            for h in &compact {
+                debug!(target: "deepflow", "whitelist hit {} pid={}", h.process_name, h.pid);
+            }
+        }
+    }
+
+    /// 无论 FSM 是否已 Idle：停视觉/白名单并强制藏遮罩（防卡死逃生）。
+    pub fn force_exit_everything(&self, app: &AppHandle) -> SystemState {
+        let st = self.fsm.get_state();
+        if !matches!(st, SystemState::Idle) {
+            let _ = self.dispatch_and_apply(app, FsmEvent::TestExit);
+        } else {
+            // 已 Idle 仍可能残留全屏 overlay
+            crate::ipc::force_hide_overlay(app);
+            crate::ipc::force_hide_floating(app);
+            self.vision.stop();
+            *self.whitelist_monitor_on.lock() = false;
+        }
+        // 再保险关一次窗
+        crate::ipc::force_hide_overlay(app);
+        crate::ipc::force_hide_floating(app);
+        self.fsm.get_state()
     }
 
     pub fn persist_pending_debt_if_any(&self) {

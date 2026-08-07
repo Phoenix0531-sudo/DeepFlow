@@ -10,3 +10,11 @@ data/*.db-*
 !.vscode/extensions.json
 .idea/
 .auto/
+# ultralytics export scratch at repo root
+/yolo*.pt
+/yolo*.onnx
+*.torchscript
+# downloaded vision models (keep dir, not binaries)
+data/models/*.onnx
+data/models/*.pt
+tsconfig.tsbuildinfo

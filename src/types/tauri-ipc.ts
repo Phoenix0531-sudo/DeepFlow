@@ -16,6 +16,7 @@ export type SystemState =
       kind: "intervention_level1";
       phone_hold_duration_secs: number;
       session_id: string;
+      observe_remaining_secs: number;
     }
   | {
       kind: "intervention_level2";
@@ -36,6 +37,7 @@ export interface SettingsRecord {
   debt_floor_secs: number;
   emergency_hotkey: string;
   debug_mode: boolean;
+  test_mode: boolean;
   vision_enabled: boolean;
   prefer_cpu_inference: boolean;
   camera_name: string;
@@ -59,6 +61,33 @@ export interface WhitelistHit {
   pid: number;
 }
 
+/** 归一化 ROI，坐标系 0..1 */
+export interface RoiRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface DetectionInfo {
+  has_phone: boolean;
+  has_hand: boolean;
+  phone_brightness: number;
+  hand_phone_overlap: boolean;
+  phone_score: number;
+  backend: string;
+}
+
+export interface VisionStatus {
+  running: boolean;
+  enabled: boolean;
+  detector: string;
+  hold_secs: number;
+  camera_name: string;
+  has_preview: boolean;
+  last_detection: DetectionInfo | null;
+}
+
 export const EVT = {
   fsm: "fsm_state_change",
   whitelist: "whitelist_hit",
@@ -67,4 +96,5 @@ export const EVT = {
   sessionEnd: "session_end_choice",
   openSettings: "open_settings",
   openReport: "open_report",
+  playSound: "play_sound",
 } as const;

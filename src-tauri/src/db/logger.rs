@@ -20,6 +20,7 @@ pub struct SettingsRecord {
     pub debt_floor_secs: u32,
     pub emergency_hotkey: String,
     pub debug_mode: bool,
+    pub test_mode: bool,
     pub vision_enabled: bool,
     pub prefer_cpu_inference: bool,
     pub camera_name: String,
@@ -36,6 +37,7 @@ impl Default for SettingsRecord {
             debt_floor_secs: 180,
             emergency_hotkey: "double_esc".into(),
             debug_mode: false,
+            test_mode: false,
             vision_enabled: true,
             prefer_cpu_inference: false,
             camera_name: String::new(),
@@ -84,6 +86,7 @@ impl LocalLogger {
                 debt_floor_secs INTEGER NOT NULL DEFAULT 180,
                 emergency_hotkey TEXT NOT NULL DEFAULT 'double_esc',
                 debug_mode INTEGER NOT NULL DEFAULT 0,
+                test_mode INTEGER NOT NULL DEFAULT 0,
                 vision_enabled INTEGER NOT NULL DEFAULT 1,
                 prefer_cpu_inference INTEGER NOT NULL DEFAULT 0,
                 camera_name TEXT NOT NULL DEFAULT '',
@@ -98,6 +101,17 @@ impl LocalLogger {
             INSERT OR IGNORE INTO settings (id) VALUES (1);
             "#,
         )?;
+        let has_test_mode: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name = 'test_mode')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_test_mode {
+            self.conn.execute(
+                "ALTER TABLE settings ADD COLUMN test_mode INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
         Ok(())
     }
 
@@ -150,7 +164,7 @@ impl LocalLogger {
         self.conn.query_row(
             r#"
             SELECT setup_completed, default_focus_mins, debt_floor_secs, emergency_hotkey,
-                   debug_mode, vision_enabled, prefer_cpu_inference, camera_name, roi_json,
+                   debug_mode, test_mode, vision_enabled, prefer_cpu_inference, camera_name, roi_json,
                    whitelist_json, pending_debt_secs
             FROM settings WHERE id = 1
             "#,
@@ -162,12 +176,13 @@ impl LocalLogger {
                     debt_floor_secs: row.get(2)?,
                     emergency_hotkey: row.get(3)?,
                     debug_mode: row.get::<_, i64>(4)? != 0,
-                    vision_enabled: row.get::<_, i64>(5)? != 0,
-                    prefer_cpu_inference: row.get::<_, i64>(6)? != 0,
-                    camera_name: row.get(7)?,
-                    roi_json: row.get(8)?,
-                    whitelist_json: row.get(9)?,
-                    pending_debt_secs: row.get(10)?,
+                    test_mode: row.get::<_, i64>(5)? != 0,
+                    vision_enabled: row.get::<_, i64>(6)? != 0,
+                    prefer_cpu_inference: row.get::<_, i64>(7)? != 0,
+                    camera_name: row.get(8)?,
+                    roi_json: row.get(9)?,
+                    whitelist_json: row.get(10)?,
+                    pending_debt_secs: row.get(11)?,
                 })
             },
         )
@@ -182,12 +197,13 @@ impl LocalLogger {
               debt_floor_secs = ?3,
               emergency_hotkey = ?4,
               debug_mode = ?5,
-              vision_enabled = ?6,
-              prefer_cpu_inference = ?7,
-              camera_name = ?8,
-              roi_json = ?9,
-              whitelist_json = ?10,
-              pending_debt_secs = ?11
+              test_mode = ?6,
+              vision_enabled = ?7,
+              prefer_cpu_inference = ?8,
+              camera_name = ?9,
+              roi_json = ?10,
+              whitelist_json = ?11,
+              pending_debt_secs = ?12
             WHERE id = 1
             "#,
             params![
@@ -196,6 +212,7 @@ impl LocalLogger {
                 s.debt_floor_secs,
                 s.emergency_hotkey,
                 s.debug_mode as i64,
+                s.test_mode as i64,
                 s.vision_enabled as i64,
                 s.prefer_cpu_inference as i64,
                 s.camera_name,
@@ -249,15 +266,82 @@ impl LocalLogger {
             .max(1);
 
         let total_focus_minutes = focus_secs / 60;
+        let golden = self.compute_golden_hour_range().unwrap_or_else(|_| "暂无足够数据".into());
         Ok(WeeklyReport {
             total_focus_minutes,
             successful_pullbacks_count: pullbacks,
             total_borrowed_rest_minutes: rest_secs / 60,
-            golden_focus_hour_range: "10:00 - 11:30".into(), // P2: A主C辅算法
+            golden_focus_hour_range: golden,
             avg_focus_minutes: total_focus_minutes / sessions,
             interrupted_count: interrupted,
             vs_last_week_focus_delta_minutes: total_focus_minutes as i32
                 - (last_week_focus / 60) as i32,
         })
+    }
+
+    /// A主 C辅：以会话/拉回/休息结束的小时直方图为主，峰值小时 A；
+    /// 向两侧扩展连续次高小时得到辅助窗 C，格式 `HH:00 - HH:00`。
+    fn compute_golden_hour_range(&self) -> SqlResult<String> {
+        let mut scores = [0u32; 24];
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT CAST(strftime('%H', created_at) AS INTEGER) AS h,
+                   event_type,
+                   COALESCE(duration_secs, 0) AS dur
+            FROM focus_logs
+            WHERE created_at >= datetime('now','-7 days','localtime')
+            "#,
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0).unwrap_or(0) as usize,
+                row.get::<_, String>(1).unwrap_or_default(),
+                row.get::<_, i64>(2).unwrap_or(0) as u32,
+            ))
+        })?;
+
+        let mut any = false;
+        for r in rows.flatten() {
+            let (h, et, dur) = r;
+            if h >= 24 {
+                continue;
+            }
+            any = true;
+            // 权重：SESSION_START 计 30；PAUSE_END 用时长；PULLBACK 20；其它轻量
+            let add = match et.as_str() {
+                "SESSION_START" => 30 + dur / 60,
+                "PAUSE_END" => (dur / 60).max(5),
+                "PULLBACK" => 20,
+                "SESSION_END" => 10,
+                _ => 2,
+            };
+            scores[h] = scores[h].saturating_add(add);
+        }
+
+        if !any || scores.iter().all(|&s| s == 0) {
+            return Ok("暂无足够数据".into());
+        }
+
+        let peak = scores
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, s)| *s)
+            .map(|(i, _)| i)
+            .unwrap_or(10);
+
+        // 从峰值向两侧扩：不低于 peak*40% 且不超 3 小时宽
+        let thr = (scores[peak] as f32 * 0.4).max(1.0) as u32;
+        let mut lo = peak;
+        let mut hi = peak;
+        while lo > 0 && scores[lo - 1] >= thr && (hi - (lo - 1)) < 3 {
+            lo -= 1;
+        }
+        while hi + 1 < 24 && scores[hi + 1] >= thr && ((hi + 1) - lo) < 3 {
+            hi += 1;
+        }
+        // 窗口右端显示为下一整点（或 +30 分若单小时）
+        let end_h = if lo == hi { (hi + 1) % 24 } else { (hi + 1) % 24 };
+        let end_m = if lo == hi { 30 } else { 0 };
+        Ok(format!("{lo:02}:00 - {end_h:02}:{end_m:02}"))
     }
 }

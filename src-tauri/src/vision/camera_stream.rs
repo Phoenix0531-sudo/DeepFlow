@@ -135,15 +135,8 @@ fn camera_loop<F>(
 where
     F: FnMut(u32, u32, Vec<u8>),
 {
-    let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
-        nokhwa::utils::CameraFormat::new(
-            Resolution::new(640, 480),
-            nokhwa::utils::FrameFormat::MJPEG,
-            fps,
-        ),
-    ));
-
-    let mut cam = Camera::new(index, requested).map_err(map_err)?;
+    // 优先 MJPEG（带宽低）；失败再试 AbsoluteHighestResolution
+    let mut cam = open_camera(index.clone(), fps).map_err(map_err)?;
     cam.open_stream().map_err(map_err)?;
     info!(
         target: "deepflow",
@@ -154,16 +147,18 @@ where
     );
 
     let frame_interval = std::time::Duration::from_millis((1000 / fps.max(1)) as u64);
+    let mut decode_fail_logged = 0u32;
     while running.load(Ordering::SeqCst) {
         let t0 = std::time::Instant::now();
         match cam.frame() {
-            Ok(buf) => match buf.decode_image::<RgbFormat>() {
-                Ok(img) => {
-                    let w = img.width();
-                    let h = img.height();
-                    on_frame(w, h, img.into_raw());
+            Ok(buf) => match decode_buffer_rgb(&buf) {
+                Ok((w, h, rgb)) => on_frame(w, h, rgb),
+                Err(e) => {
+                    if decode_fail_logged < 5 {
+                        warn!("decode frame: {e}");
+                        decode_fail_logged += 1;
+                    }
                 }
-                Err(e) => warn!("decode frame: {e}"),
             },
             Err(e) => {
                 warn!("grab frame: {e}");
@@ -178,6 +173,55 @@ where
 
     let _ = cam.stop_stream();
     Ok(())
+}
+
+fn open_camera(index: CameraIndex, fps: u32) -> Result<Camera, NokhwaError> {
+    let candidates = [
+        RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
+            nokhwa::utils::CameraFormat::new(
+                Resolution::new(640, 480),
+                nokhwa::utils::FrameFormat::MJPEG,
+                fps,
+            ),
+        )),
+        RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
+            nokhwa::utils::CameraFormat::new(
+                Resolution::new(640, 480),
+                nokhwa::utils::FrameFormat::YUYV,
+                fps,
+            ),
+        )),
+        RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate),
+    ];
+    let mut last = None;
+    for req in candidates {
+        match Camera::new(index.clone(), req) {
+            Ok(cam) => return Ok(cam),
+            Err(e) => last = Some(e),
+        }
+    }
+    Err(last.unwrap_or_else(|| {
+        NokhwaError::GeneralError("no camera format available".into())
+    }))
+}
+
+/// nokhwa decode，失败时用 image 直接解 MJPEG 原始缓冲。
+fn decode_buffer_rgb(buf: &nokhwa::Buffer) -> Result<(u32, u32, Vec<u8>), String> {
+    match buf.decode_image::<RgbFormat>() {
+        Ok(img) => {
+            let w = img.width();
+            let h = img.height();
+            Ok((w, h, img.into_raw()))
+        }
+        Err(e) => {
+            // 兜底：把 buffer 当 JPEG 文件解（MJPEG 帧本身是完整 JPEG）
+            if let Ok(dyn_img) = image::load_from_memory(buf.buffer()) {
+                let rgb = dyn_img.to_rgb8();
+                return Ok((rgb.width(), rgb.height(), rgb.into_raw()));
+            }
+            Err(e.to_string())
+        }
+    }
 }
 
 fn map_err(e: NokhwaError) -> String {
