@@ -187,6 +187,108 @@ pub async fn get_data_dir(state: S<'_>) -> Result<String, String> {
     Ok(state.data_dir.to_string_lossy().into_owned())
 }
 
+/// 数据路径策略诊断：mode / data_dir / exports / models / db。
+#[tauri::command]
+pub async fn get_path_info(state: S<'_>) -> Result<serde_json::Value, String> {
+    let data = state.data_dir.clone();
+    let mode = resolve_path_mode_label(&data);
+    Ok(serde_json::json!({
+        "mode": mode,
+        "data_dir": data.to_string_lossy(),
+        "exports_dir": data.join("exports").to_string_lossy(),
+        "models_dir": data.join("models").to_string_lossy(),
+        "db_path": data.join("deepflow.db").to_string_lossy(),
+        "logs_dir": data.join("logs").to_string_lossy(),
+        "portable_hint": "设置 DEEPFLOW_PORTABLE=1 或在 exe 旁放 portable.flag",
+        "env_override": "DEEPFLOW_DATA_DIR",
+    }))
+}
+
+fn resolve_path_mode_label(data: &std::path::Path) -> &'static str {
+    if std::env::var("DEEPFLOW_DATA_DIR").is_ok() {
+        return "env";
+    }
+    if std::env::var("DEEPFLOW_PORTABLE")
+        .map(|v| {
+            let t = v.trim().to_ascii_lowercase();
+            t == "1" || t == "true" || t == "yes" || t == "on"
+        })
+        .unwrap_or(false)
+    {
+        return "portable";
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            for name in ["portable.flag", ".portable", "DeepFlow.portable"] {
+                if parent.join(name).is_file() {
+                    return "portable";
+                }
+            }
+            // 开发产物路径特征
+            let mut saw_target = false;
+            for comp in exe.components() {
+                let s = comp.as_os_str().to_string_lossy().to_ascii_lowercase();
+                if s == "target" {
+                    saw_target = true;
+                } else if saw_target && (s == "debug" || s == "release") {
+                    return "dev";
+                }
+            }
+            // 与 exe 同级 → 便携/回退；LOCALAPPDATA 下 → install
+            if let Ok(la) = std::env::var("LOCALAPPDATA") {
+                let install = std::path::PathBuf::from(la).join("DeepFlow").join("data");
+                if paths_equal(data, &install) {
+                    return "install";
+                }
+            }
+            if paths_equal(data, &parent.join("data")) {
+                return "portable";
+            }
+        }
+    }
+    let _ = data;
+    "fallback"
+}
+
+fn paths_equal(a: &std::path::Path, b: &std::path::Path) -> bool {
+    let ca = a.canonicalize().unwrap_or_else(|_| a.to_path_buf());
+    let cb = b.canonicalize().unwrap_or_else(|_| b.to_path_buf());
+    ca == cb
+}
+
+/// 资源管理器打开文件或目录（导出 PNG / 数据目录）。
+#[tauri::command]
+pub async fn reveal_path(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(path.trim());
+    if p.as_os_str().is_empty() {
+        return Err("路径为空".into());
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        // 文件 → /select, 目录 → 直接打开
+        let mut cmd = std::process::Command::new("explorer");
+        if p.is_file() {
+            cmd.arg(format!("/select,{}", p.to_string_lossy()));
+        } else {
+            let dir = if p.is_dir() {
+                p.clone()
+            } else {
+                p.parent().unwrap_or(p.as_path()).to_path_buf()
+            };
+            cmd.arg(dir);
+        }
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd.spawn().map_err(|e| format!("打开资源管理器失败: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(not(windows))]
+    {
+        Err("仅 Windows 支持 reveal_path".into())
+    }
+}
+
 #[tauri::command]
 pub async fn list_running_processes() -> Result<Vec<String>, String> {
     Ok(list_running_process_names())

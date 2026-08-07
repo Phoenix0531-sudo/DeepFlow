@@ -13,6 +13,8 @@ import {
   RefreshCw,
   FlaskConical,
   Keyboard,
+  Download,
+  FolderOpen,
 } from "lucide-react";
 import { CameraPreview } from "../components/CameraPreview";
 import { useTauriEvent } from "../hooks/useTauriEvents";
@@ -94,6 +96,10 @@ export const MainWindow: React.FC = () => {
   const [reportOpen, setReportOpen] = useState(false);
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS);
   const [report, setReport] = useState<WeeklyReport | null>(null);
+  const [reportPngPath, setReportPngPath] = useState<string>("");
+  const [exporting, setExporting] = useState(false);
+  const [dataDir, setDataDir] = useState<string>("");
+  const [pathMode, setPathMode] = useState<string>("");
   const [hits, setHits] = useState<WhitelistHit[]>([]);
   const [processes, setProcesses] = useState<string[]>([]);
   const [duration, setDuration] = useState(45);
@@ -131,9 +137,40 @@ export const MainWindow: React.FC = () => {
   const openReport = async () => {
     try {
       setReport(await invoke<WeeklyReport>("get_weekly_report"));
+      setReportPngPath("");
       setReportOpen(true);
     } catch (e) {
       setErr(String(e));
+    }
+  };
+
+  const exportPng = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const path = await invoke<string>("export_weekly_report_png");
+      setReportPngPath(path);
+      setErr("");
+    } catch (e) {
+      setErr(`导出失败：${String(e)}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const openExportsDir = async () => {
+    try {
+      const info = await invoke<{
+        exports_dir: string;
+        mode: string;
+        data_dir: string;
+      }>("get_path_info");
+      setDataDir(info.data_dir);
+      setPathMode(info.mode);
+      // reveal_path 会打开资源管理器并选中对应文件/目录
+      await invoke<void>("reveal_path", { path: reportPngPath || info.exports_dir });
+    } catch (e) {
+      setErr(`打开目录失败：${String(e)}`);
     }
   };
 
@@ -605,7 +642,34 @@ export const MainWindow: React.FC = () => {
               </li>
               <li>黄金时段：{report.golden_focus_hour_range}</li>
             </ul>
-            <p className="mt-4 text-xs text-slate-500">分享图 PNG 将在 P2 生成</p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void exportPng()}
+                disabled={exporting}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:bg-emerald-500 disabled:opacity-50"
+              >
+                <Download size={14} />
+                {exporting ? "导出中…" : "导出 PNG"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void openExportsDir()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 shadow transition hover:bg-white/20"
+              >
+                <FolderOpen size={14} />
+                打开所在目录
+              </button>
+              {reportPngPath ? (
+                <span className="max-w-full truncate text-[11px] text-emerald-300">
+                  {reportPngPath}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              数据目录：{dataDir || "点击「打开所在目录」查看"}
+              {pathMode ? <span className="ml-1 text-slate-600">（{pathMode}）</span> : null}
+            </p>
           </div>
         </div>
       )}
