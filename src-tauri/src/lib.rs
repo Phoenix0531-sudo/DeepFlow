@@ -306,8 +306,22 @@ pub fn run() {
                 let settings_i =
                     MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
                 let report_i = MenuItem::with_id(app, "report", "周报", true, None::<&str>)?;
+                let open_data_i =
+                    MenuItem::with_id(app, "open_data_dir", "打开数据目录", true, None::<&str>)?;
+                let open_exports_i =
+                    MenuItem::with_id(app, "open_exports_dir", "打开导出目录", true, None::<&str>)?;
                 let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show_i, &settings_i, &report_i, &quit_i])?;
+                let menu = Menu::with_items(
+                    app,
+                    &[
+                        &show_i,
+                        &settings_i,
+                        &report_i,
+                        &open_data_i,
+                        &open_exports_i,
+                        &quit_i,
+                    ],
+                )?;
 
                 let _tray = TrayIconBuilder::new()
                     .icon(app.default_window_icon().unwrap().clone())
@@ -329,6 +343,18 @@ pub fn run() {
                         }
                         "report" => {
                             let _ = app.emit_to("main", "open_report", ());
+                        }
+                        "open_data_dir" => {
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ipc::reveal_path_sync(&state.data_dir);
+                            }
+                        }
+                        "open_exports_dir" => {
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let exports = state.data_dir.join("exports");
+                                let _ = std::fs::create_dir_all(&exports);
+                                let _ = crate::ipc::reveal_path_sync(&exports);
+                            }
                         }
                         "quit" => {
                             app.exit(0);

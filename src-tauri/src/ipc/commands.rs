@@ -257,9 +257,7 @@ fn paths_equal(a: &std::path::Path, b: &std::path::Path) -> bool {
 }
 
 /// 资源管理器打开文件或目录（导出 PNG / 数据目录）。
-#[tauri::command]
-pub async fn reveal_path(path: String) -> Result<(), String> {
-    let p = std::path::PathBuf::from(path.trim());
+pub(crate) fn reveal_path_sync(p: &std::path::Path) -> Result<(), String> {
     if p.as_os_str().is_empty() {
         return Err("路径为空".into());
     }
@@ -273,9 +271,9 @@ pub async fn reveal_path(path: String) -> Result<(), String> {
             cmd.arg(format!("/select,{}", p.to_string_lossy()));
         } else {
             let dir = if p.is_dir() {
-                p.clone()
+                p.to_path_buf()
             } else {
-                p.parent().unwrap_or(p.as_path()).to_path_buf()
+                p.parent().unwrap_or(p).to_path_buf()
             };
             cmd.arg(dir);
         }
@@ -288,6 +286,14 @@ pub async fn reveal_path(path: String) -> Result<(), String> {
         Err("仅 Windows 支持 reveal_path".into())
     }
 }
+
+/// 资源管理器打开文件或目录（导出 PNG / 数据目录）。
+#[tauri::command]
+pub async fn reveal_path(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(path.trim());
+    reveal_path_sync(&p)
+}
+
 
 #[tauri::command]
 pub async fn list_running_processes() -> Result<Vec<String>, String> {
