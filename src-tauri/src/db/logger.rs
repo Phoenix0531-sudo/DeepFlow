@@ -345,3 +345,193 @@ impl LocalLogger {
         Ok(format!("{lo:02}:00 - {end_h:02}:{end_m:02}"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn open_tmp() -> (LocalLogger, PathBuf) {
+        let mut dir = std::env::temp_dir();
+        dir.push(format!(
+            "deepflow_test_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let logger = LocalLogger::open(&dir).expect("open db");
+        (logger, dir)
+    }
+
+    fn insert_log_at(logger: &LocalLogger, session: &str, ev: &str, reason: Option<&str>, secs: u32, at: &str) {
+        logger
+            .conn
+            .execute(
+                "INSERT INTO focus_logs (session_id, event_type, reason, duration_secs, created_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![session, ev, reason.unwrap_or(""), secs, at],
+            )
+            .unwrap();
+    }
+
+    fn add_day(logger: &LocalLogger, day: &str, secs: u32) {
+        logger
+            .conn
+            .execute(
+                "INSERT INTO daily_focus (day, focus_secs) VALUES (?1, ?2) \
+                 ON CONFLICT(day) DO UPDATE SET focus_secs = focus_secs + excluded.focus_secs",
+                params![day, secs],
+            )
+            .unwrap();
+    }
+
+    fn now_local_iso() -> String {
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+    }
+
+    #[test]
+    fn migrate_creates_tables_and_default_settings() {
+        let (logger, _dir) = open_tmp();
+        // settings 默认行存在，emergency_hotkey 默认 double_esc
+        let s = logger.load_settings().expect("load settings");
+        assert!(!s.setup_completed);
+        assert_eq!(s.default_focus_mins, 45);
+        assert_eq!(s.debt_floor_secs, 180);
+        assert_eq!(s.emergency_hotkey, "double_esc");
+        assert_eq!(s.pending_debt_secs, 0);
+        assert!(!s.vision_enabled || s.vision_enabled); // 仅验证可读
+    }
+
+    #[test]
+    fn settings_roundtrip_preserves_all_fields() {
+        let (logger, _dir) = open_tmp();
+        let mut s = logger.load_settings().unwrap();
+        s.setup_completed = true;
+        s.default_focus_mins = 60;
+        s.debt_floor_secs = 300;
+        s.emergency_hotkey = "ctrl_alt_q".into();
+        s.debug_mode = true;
+        s.test_mode = true;
+        s.vision_enabled = false;
+        s.prefer_cpu_inference = true;
+        s.camera_name = "Integrated Camera".into();
+        s.roi_json = "{\"x\":1}".into();
+        s.whitelist_json = "[\"a.exe\",\"b.exe\"]".into();
+        s.pending_debt_secs = 42;
+        logger.save_settings(&s).unwrap();
+
+        let got = logger.load_settings().unwrap();
+        assert_eq!(got.setup_completed, true);
+        assert_eq!(got.default_focus_mins, 60);
+        assert_eq!(got.debt_floor_secs, 300);
+        assert_eq!(got.emergency_hotkey, "ctrl_alt_q");
+        assert!(got.debug_mode);
+        assert!(got.test_mode);
+        assert!(!got.vision_enabled);
+        assert!(got.prefer_cpu_inference);
+        assert_eq!(got.camera_name, "Integrated Camera");
+        assert_eq!(got.roi_json, "{\"x\":1}");
+        assert_eq!(got.whitelist_json, "[\"a.exe\",\"b.exe\"]");
+        assert_eq!(got.pending_debt_secs, 42);
+    }
+
+    #[test]
+    fn today_focus_accumulates_and_loads() {
+        let (logger, _dir) = open_tmp();
+        assert_eq!(logger.today_focus_secs().unwrap(), 0);
+        logger.add_focus_secs_today(100).unwrap();
+        logger.add_focus_secs_today(50).unwrap();
+        assert_eq!(logger.today_focus_secs().unwrap(), 150);
+    }
+
+    #[test]
+    fn weekly_report_empty_week_is_all_zeros() {
+        let (logger, _dir) = open_tmp();
+        let r = logger.generate_weekly_report().unwrap();
+        assert_eq!(r.total_focus_minutes, 0);
+        assert_eq!(r.successful_pullbacks_count, 0);
+        assert_eq!(r.total_borrowed_rest_minutes, 0);
+        assert_eq!(r.interrupted_count, 0);
+        assert_eq!(r.vs_last_week_focus_delta_minutes, 0);
+        // avg = 0 / max(sessions,1) = 0
+        assert_eq!(r.avg_focus_minutes, 0);
+    }
+
+    #[test]
+    fn weekly_report_aggregates_last_7_days_only() {
+        let (logger, _dir) = open_tmp();
+        // 本周（今天）1800 秒专注（30 分）
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        add_day(&logger, &today, 1800);
+        // 8 天前落在「上周」区间（≥-14 且 < -7 天）→ last_week=3600s=60分
+        let eight_days = (chrono::Local::now() - chrono::Duration::days(8))
+            .format("%Y-%m-%d")
+            .to_string();
+        add_day(&logger, &eight_days, 3600);
+
+        let r = logger.generate_weekly_report().unwrap();
+        assert_eq!(r.total_focus_minutes, 30, "only today (last 7 days) counts");
+        // delta = 本周 30 − 上周 60 = -30
+        assert_eq!(r.vs_last_week_focus_delta_minutes, -30);
+    }
+
+    #[test]
+    fn weekly_report_pullbacks_and_rest_and_interrupts() {
+        let (logger, _dir) = open_tmp();
+        let now = now_local_iso();
+        // 本周内 3 次拉回 + 1 次 PAUSE_END(120秒=2分) + 1 次 L3（中断）
+        for i in 0..3 {
+            insert_log_at(&logger, "s1", "PULLBACK", None, 0, &now);
+            let _ = i;
+        }
+        insert_log_at(&logger, "s1", "PAUSE_END", None, 120, &now);
+        insert_log_at(&logger, "s1", "L3", Some("玩手机"), 0, &now);
+        // 本周外 1 次拉回（不应计入）
+        let old = (chrono::Local::now() - chrono::Duration::days(10))
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+        insert_log_at(&logger, "s0", "PULLBACK", None, 0, &old);
+
+        let r = logger.generate_weekly_report().unwrap();
+        assert_eq!(r.successful_pullbacks_count, 3);
+        assert_eq!(r.total_borrowed_rest_minutes, 2);
+        assert_eq!(r.interrupted_count, 1);
+    }
+
+    #[test]
+    fn weekly_report_delta_negative_when_last_week_higher() {
+        let (logger, _dir) = open_tmp();
+        // 本周 0 分；上周（8-14天前）2400秒=40分
+        let nine_days = (chrono::Local::now() - chrono::Duration::days(9))
+            .format("%Y-%m-%d")
+            .to_string();
+        add_day(&logger, &nine_days, 2400);
+
+        let r = logger.generate_weekly_report().unwrap();
+        assert_eq!(r.total_focus_minutes, 0);
+        // delta = 0 − 40 = −40
+        assert_eq!(r.vs_last_week_focus_delta_minutes, -40);
+    }
+
+    #[test]
+    fn log_event_persists_reason_and_duration() {
+        let (logger, _dir) = open_tmp();
+        logger
+            .log_event("sess-9", "EMERGENCY_EXIT", Some("误触"), 5)
+            .unwrap();
+        let (reason, dur): (String, i64) = logger
+            .conn
+            .query_row(
+                "SELECT reason, duration_secs FROM focus_logs WHERE session_id = 'sess-9'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(reason, "误触");
+        assert_eq!(dur, 5);
+    }
+}

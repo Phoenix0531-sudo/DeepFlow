@@ -149,10 +149,12 @@ fn glyph_for(ch: char) -> Glyph {
     if let Some(g) = cjk_map().get(&ch) {
         return *g;
     }
-    // 全角数字等
-    if let Some(ascii) = std::char::from_u32(ch as u32 - 0xFEE0) {
-        if let Some(g) = ascii_glyph(ascii) {
-            return g;
+    // 全角数字等：仅当落在全角 ASCII 区间（0xFF01..=0xFF5E）才减偏移，避免下溢 panic
+    if (0xFF01..=0xFF5E).contains(&(ch as u32)) {
+        if let Some(ascii) = std::char::from_u32(ch as u32 - 0xFEE0) {
+            if let Some(g) = ascii_glyph(ascii) {
+                return g;
+            }
         }
     }
     missing()

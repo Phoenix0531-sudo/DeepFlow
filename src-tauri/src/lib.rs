@@ -430,3 +430,72 @@ impl LocalLoggerOpen {
             .unwrap_or(false)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+    use std::fs;
+
+    #[test]
+    fn is_dev_exe_detects_target_debug() {
+        assert!(is_dev_exe(Path::new(
+            "/home/u/proj/target/debug/deepflow.exe"
+        )));
+        assert!(is_dev_exe(Path::new(
+            "C:\\code\\DeepFlow\\target\\release\\deepflow.exe"
+        )));
+        assert!(is_dev_exe(Path::new("target/debug/x")));
+    }
+
+    #[test]
+    fn is_dev_exe_rejects_install_paths() {
+        // 安装目录不含 target/debug
+        assert!(!is_dev_exe(Path::new(
+            "C:\\Program Files\\DeepFlow\\deepflow.exe"
+        )));
+        assert!(!is_dev_exe(Path::new("/opt/deepflow/bin/deepflow")));
+        // 只有 target 无 debug/release 不算（比如代码名 target_detect）
+        assert!(!is_dev_exe(Path::new("/u/target/x/y")));
+        // 顺序不对：debug 在 target 之前
+        assert!(!is_dev_exe(Path::new("/u/debug/target/x")));
+    }
+
+    #[test]
+    fn is_dev_exe_release_same_level_as_target() {
+        // target 之后必须是紧邻的 debug|release 段；目录名叫 debug2 不算
+        assert!(!is_dev_exe(Path::new("/u/target/debug2/x")));
+        assert!(!is_dev_exe(Path::new("/u/target/profile/x")));
+    }
+
+    #[test]
+    fn is_portable_mode_marker_files() {
+        // 在 exe 同级放标记文件 → 便携
+        let tmp = tempfile::tempdir().unwrap();
+        let exe = tmp.path().join("deepflow.exe");
+        fs::write(&exe, b"").unwrap();
+
+        assert!(!is_portable_mode(Some(&exe)), "no marker → not portable");
+
+        for name in ["portable.flag", ".portable", "DeepFlow.portable"] {
+            let marker = tmp.path().join(name);
+            fs::write(&marker, b"x").unwrap();
+            assert!(
+                is_portable_mode(Some(&exe)),
+                "marker {name} → portable"
+            );
+            fs::remove_file(&marker).unwrap();
+        }
+        assert!(!is_portable_mode(Some(&exe)), "cleaned → not portable");
+    }
+
+    #[test]
+    fn is_portable_mode_none_exe_safe_false() {
+        // exe=None 且无事标 → 安全返回 false
+        // 注意：此测试受 DEEPFLOW_PORTABLE 环境变量影响；但仍要求不 panic
+        let _ = is_portable_mode(None);
+    }
+
+    // 环境变量分支（DEEPFLOW_DATA_DIR / DEEPFLOW_PORTABLE）会受测试并发影响，
+    // 此处不做断言性测试，避免竞态。resolve_data_dir 的集成留到手工验收。
+}

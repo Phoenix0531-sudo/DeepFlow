@@ -171,3 +171,84 @@ pub fn export_weekly_png(report: &WeeklyReport, exports_dir: &Path) -> Result<Pa
     img.save(&path).map_err(|e| format!("写 PNG 失败: {e}"))?;
     Ok(path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::WeeklyReport;
+    use std::fs;
+
+    fn sample_report() -> WeeklyReport {
+        WeeklyReport {
+            total_focus_minutes: 320,
+            successful_pullbacks_count: 7,
+            total_borrowed_rest_minutes: 48,
+            golden_focus_hour_range: "20:00 - 22:00".into(),
+            avg_focus_minutes: 40,
+            interrupted_count: 1,
+            vs_last_week_focus_delta_minutes: 35,
+        }
+    }
+
+    fn tmp_exports() -> tempfile::TempDir {
+        tempfile::tempdir().expect("tmp dir")
+    }
+
+    #[test]
+    fn export_writes_png_with_timestamp_name() {
+        let dir = tmp_exports();
+        let path = export_weekly_png(&sample_report(), dir.path()).expect("export ok");
+        assert!(path.exists(), "png file should exist");
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(
+            name.starts_with("weekly-report-"),
+            "name prefix: {name}"
+        );
+        assert!(name.ends_with(".png"), "name ext: {name}");
+        // 时间戳 YYYYMMDD-HHMMSS 介于前缀与后缀之间，长度=15
+        let stem = &name["weekly-report-".len()..name.len() - ".png".len()];
+        assert_eq!(stem.len(), 15, "timestamp shape: {stem}");
+        // YYYYMMDD-HHMMSS → dash at byte index 8
+        assert_eq!(&stem.as_bytes()[8..9], b"-", "dash separator: {stem}");
+        // 非空且为合法 PNG（magic bytes）
+        let bytes = fs::read(&path).unwrap();
+        assert!(bytes.len() > 8, "png not empty");
+        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n", "PNG magic");
+    }
+
+    #[test]
+    fn export_creates_exports_dir_if_missing() {
+        let dir = tmp_exports();
+        let nested = dir.path().join("nested/exports");
+        let path = export_weekly_png(&sample_report(), &nested).expect("export ok");
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn export_unknown_chars_does_not_panic() {
+        // 未收录的 CJK 字会走 missing() 回退（画□），不应 panic
+        let mut r = sample_report();
+        r.golden_focus_hour_range = "鲸龘贰".into();
+        let dir = tmp_exports();
+        let path = export_weekly_png(&r, dir.path()).expect("export ok");
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn export_empty_report_renders_zeros() {
+        let r = WeeklyReport {
+            total_focus_minutes: 0,
+            successful_pullbacks_count: 0,
+            total_borrowed_rest_minutes: 0,
+            golden_focus_hour_range: "暂无足够数据".into(),
+            avg_focus_minutes: 0,
+            interrupted_count: 0,
+            vs_last_week_focus_delta_minutes: 0,
+        };
+        let dir = tmp_exports();
+        let path = export_weekly_png(&r, dir.path()).expect("export ok");
+        assert!(path.exists());
+        let bytes = fs::read(&path).unwrap();
+        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+    }
+}

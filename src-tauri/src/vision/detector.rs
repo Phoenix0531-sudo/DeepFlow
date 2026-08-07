@@ -428,3 +428,122 @@ impl Detector for MockDetector {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn det(has_phone: bool, has_hand: bool, bright: u8, overlap: bool) -> Detection {
+        Detection {
+            has_phone,
+            has_hand,
+            phone_brightness: bright,
+            hand_phone_overlap: overlap,
+            phone_score: if has_phone { 0.8 } else { 0.0 },
+            backend: "test".into(),
+        }
+    }
+
+    #[test]
+    fn is_operating_no_phone_false() {
+        // 根本没检测到手机 → 一定不算操作
+        assert!(!is_operating_phone(&det(false, true, 200, false)));
+        assert!(!is_operating_phone(&det(false, false, 0, false)));
+    }
+
+    #[test]
+    fn is_operating_black_phone_no_hand_false() {
+        // 黑屏手机在桌上：亮度<40 且 无手-机重叠 → 不算操作
+        assert!(!is_operating_phone(&det(true, false, 30, false)));
+        assert!(!is_operating_phone(&det(true, true, 10, false)));
+    }
+
+    #[test]
+    fn is_operating_black_phone_with_overlap_true() {
+        // 黑屏但手拿手机（重叠） → 仍算操作（在看手机）
+        assert!(is_operating_phone(&det(true, false, 30, true)));
+    }
+
+    #[test]
+    fn is_operating_bright_phone_true() {
+        // 亮屏手机（≥40）即便无手也算操作
+        assert!(is_operating_phone(&det(true, false, 40, false)));
+        assert!(is_operating_phone(&det(true, false, 200, false)));
+    }
+
+    #[test]
+    fn is_operating_phone_with_hand_true() {
+        // 有手机且有手 → 操作
+        assert!(is_operating_phone(&det(true, true, 100, false)));
+        assert!(is_operating_phone(&det(true, true, 100, true)));
+    }
+
+    #[test]
+    fn mock_detector_returns_defaults() {
+        let d = MockDetector.detect_rgb(2, 2, &[0; 12]);
+        assert!(!d.has_phone);
+        assert_eq!(d.backend, "mock");
+    }
+
+    // --- HeuristicDetector ---
+
+    fn frame(w: u32, h: u32, rgb: [u8; 3]) -> Vec<u8> {
+        let mut v = Vec::with_capacity((w * h * 3) as usize);
+        for _ in 0..(w * h) {
+            v.extend_from_slice(&rgb);
+        }
+        v
+    }
+
+    #[test]
+    fn heuristic_empty_or_tiny_input_safe() {
+        let h = HeuristicDetector;
+        let d = h.detect_rgb(0, 0, &[]);
+        assert!(!d.has_phone);
+        assert_eq!(d.backend, "heuristic");
+        // 缓冲区不足也不 panic
+        let d2 = h.detect_rgb(4, 4, &[0; 8]);
+        assert!(!d2.has_phone);
+    }
+
+    #[test]
+    fn heuristic_dark_frame_no_phone() {
+        // 全黑帧：avg 低、bright_ratio=0 → 不算手机
+        let h = HeuristicDetector;
+        let d = h.detect_rgb(100, 100, &frame(100, 100, [5, 5, 5]));
+        assert!(!d.has_phone);
+        assert!(!d.has_hand);
+        assert!(d.phone_brightness < 40);
+        assert!(!is_operating_phone(&d));
+    }
+
+    #[test]
+    fn heuristic_bright_center_triggers_phone() {
+        // 中心 ROI（30%–70%）全亮：avg>90 且 bright_ratio 高 → 算手机
+        let h = HeuristicDetector;
+        let d = h.detect_rgb(100, 100, &frame(100, 100, [255, 255, 255]));
+        assert!(d.has_phone, "bright frame should detect phone");
+        // 全亮 → 同时判手
+        assert!(d.has_hand);
+        assert!(is_operating_phone(&d));
+    }
+
+    #[test]
+    fn heuristic_dim_border_no_phone() {
+        // 仅亮在边缘、中心暗：center ROI 采样不到亮 → 不算手机
+        let h = HeuristicDetector;
+        let mut img = frame(100, 100, [200, 200, 200]); // 边缘亮
+        // 中心 30%–70% 抹黑
+        for y in 30..70 {
+            for x in 30..70 {
+                let i = ((y * 100 + x) * 3) as usize;
+                img[i] = 5;
+                img[i + 1] = 5;
+                img[i + 2] = 5;
+            }
+        }
+        let d = h.detect_rgb(100, 100, &img);
+        assert!(!d.has_phone, "dark center should not trigger phone");
+        assert!(!d.has_hand);
+    }
+}

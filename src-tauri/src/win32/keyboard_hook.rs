@@ -174,3 +174,63 @@ unsafe extern "system" fn low_level_keyboard_proc(
     }
     CallNextHookEx(None, n_code, w_param, l_param)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_known_modes() {
+        assert_eq!(parse_emergency_hotkey("double_esc"), 0);
+        assert_eq!(parse_emergency_hotkey("f9"), 1);
+        assert_eq!(parse_emergency_hotkey("ctrl_shift_e"), 2);
+        assert_eq!(parse_emergency_hotkey("ctrl_alt_q"), 3);
+    }
+
+    #[test]
+    fn parse_aliases_and_case() {
+        // 别名
+        assert_eq!(parse_emergency_hotkey("esc"), 0);
+        assert_eq!(parse_emergency_hotkey("double-esc"), 0);
+        // 大小写无关
+        assert_eq!(parse_emergency_hotkey("F9"), 1);
+        assert_eq!(parse_emergency_hotkey("Ctrl_Shift_E"), 2);
+        assert_eq!(parse_emergency_hotkey("Ctrl+Shift+E"), 2);
+        assert_eq!(parse_emergency_hotkey("Ctrl+Alt+Q"), 3);
+        // 空白容错
+        assert_eq!(parse_emergency_hotkey("  f9  "), 1);
+    }
+
+    #[test]
+    fn parse_empty_and_unknown_falls_back_to_double_esc() {
+        assert_eq!(parse_emergency_hotkey(""), 0);
+        assert_eq!(parse_emergency_hotkey("unknown_garbage"), 0);
+        assert_eq!(parse_emergency_hotkey("f10"), 0);
+    }
+
+    #[test]
+    fn labels_match_modes() {
+        assert_eq!(emergency_hotkey_label(0), "双击 ESC");
+        assert_eq!(emergency_hotkey_label(1), "F9");
+        assert_eq!(emergency_hotkey_label(2), "Ctrl+Shift+E");
+        assert_eq!(emergency_hotkey_label(3), "Ctrl+Alt+Q");
+        // 越界回落默认
+        assert_eq!(emergency_hotkey_label(99), "双击 ESC");
+    }
+
+    #[test]
+    fn set_emergency_hotkey_updates_atomic() {
+        for (raw, want) in [
+            ("ctrl_alt_q", 3u32),
+            ("f9", 1),
+            ("garbage", 0),
+            ("ctrl+shift+e", 2),
+        ] {
+            set_emergency_hotkey(raw);
+            assert_eq!(EMERGENCY_MODE.load(Ordering::SeqCst), want);
+        }
+        // 复位，避免污染其他测试
+        set_emergency_hotkey("double_esc");
+        assert_eq!(EMERGENCY_MODE.load(Ordering::SeqCst), 0);
+    }
+}
