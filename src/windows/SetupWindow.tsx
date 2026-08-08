@@ -26,6 +26,7 @@ const defaultSettings = (): SettingsRecord => ({
   roi_json: "",
   whitelist_json: "[]",
   pending_debt_secs: 0,
+  auto_open_exports: true,
 });
 
 function parseRoi(json: string): RoiRect | null {

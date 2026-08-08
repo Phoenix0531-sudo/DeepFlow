@@ -127,7 +127,7 @@ fn data_dir() -> PathBuf {
 }
 
 /// 首次启动：若 data/models 无 onnx，尝试从安装目录/资源旁复制。
-fn seed_models_if_needed(data: &PathBuf) {
+pub(crate) fn seed_models_if_needed(data: &PathBuf) -> u32 {
     let dest = data.join("models");
     let _ = std::fs::create_dir_all(&dest);
     let has_onnx = std::fs::read_dir(&dest)
@@ -143,8 +143,9 @@ fn seed_models_if_needed(data: &PathBuf) {
                 })
         })
         .unwrap_or(false);
+    let mut copied = 0u32;
     if has_onnx {
-        return;
+        return 0;
     }
 
     let exe = std::env::current_exe().ok();
@@ -179,12 +180,15 @@ fn seed_models_if_needed(data: &PathBuf) {
                 let target = dest.join(name);
                 if !target.exists() {
                     match std::fs::copy(&p, &target) {
-                        Ok(_) => tracing::info!(
-                            target: "deepflow",
-                            "seeded model {:?} -> {:?}",
-                            p,
-                            target
-                        ),
+                        Ok(_) => {
+                            copied += 1;
+                            tracing::info!(
+                                target: "deepflow",
+                                "seeded model {:?} -> {:?}",
+                                p,
+                                target
+                            );
+                        }
                         Err(e) => tracing::warn!(
                             target: "deepflow",
                             "seed model failed {:?}: {e}",
@@ -195,6 +199,7 @@ fn seed_models_if_needed(data: &PathBuf) {
             }
         }
     }
+    copied
 }
 
 fn init_logging(data_dir: &PathBuf, debug: bool) {
@@ -411,6 +416,10 @@ pub fn run() {
             ipc::get_data_dir,
             ipc::get_path_info,
             ipc::reveal_path,
+            ipc::list_models,
+            ipc::reseed_models,
+            ipc::get_weekly_report_at,
+            ipc::get_l3_reasons,
             ipc::list_running_processes,
             ipc::get_available_cameras,
             ipc::get_vision_status,

@@ -15,9 +15,12 @@ import {
   Keyboard,
   Download,
   FolderOpen,
+  History,
+  Database,
 } from "lucide-react";
 import { CameraPreview } from "../components/CameraPreview";
 import { useTauriEvent } from "../hooks/useTauriEvents";
+import { useToast, ToastContainer } from "../hooks/useToast";
 import { playSound } from "../lib/sounds";
 import {
   EVT,
@@ -26,6 +29,8 @@ import {
   type VisionStatus,
   type WeeklyReport,
   type WhitelistHit,
+  type ModelEntry,
+  type L3ReasonEntry,
 } from "../types/tauri-ipc";
 
 function kindLabel(s: SystemState | null): string {
@@ -87,9 +92,11 @@ const DEFAULT_SETTINGS: SettingsRecord = {
   roi_json: "",
   whitelist_json: "[]",
   pending_debt_secs: 0,
+  auto_open_exports: true,
 };
 
 export const MainWindow: React.FC = () => {
+  const { toasts, showError, showSuccess, remove, push } = useToast();
   const [state, setState] = useState<SystemState | null>(null);
   const [today, setToday] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -103,8 +110,15 @@ export const MainWindow: React.FC = () => {
   const [hits, setHits] = useState<WhitelistHit[]>([]);
   const [processes, setProcesses] = useState<string[]>([]);
   const [duration, setDuration] = useState(45);
-  const [err, setErr] = useState("");
   const [vision, setVision] = useState<VisionStatus | null>(null);
+  // #14：模型自管理 UI 状态
+  const [models, setModels] = useState<ModelEntry[]>([]);
+  const [reseeding, setReseeding] = useState(false);
+  // #15：周报历史周选择（0=本周）
+  const [reportWeek, setReportWeek] = useState(0);
+  // #16：L3 原因记录查看
+  const [l3Reasons, setL3Reasons] = useState<L3ReasonEntry[]>([]);
+  const [l3Loading, setL3Loading] = useState(false);
 
   const refresh = async () => {
     try {
@@ -115,7 +129,7 @@ export const MainWindow: React.FC = () => {
       setDuration(s.default_focus_mins);
       setVision(await invoke<VisionStatus>("get_vision_status"));
     } catch (e) {
-      setErr(String(e));
+      showError(e);
     }
   };
 
@@ -134,13 +148,16 @@ export const MainWindow: React.FC = () => {
   useTauriEvent(EVT.openReport, () => void openReport(), []);
   useTauriEvent<string>(EVT.playSound, (kind) => playSound(kind), []);
 
-  const openReport = async () => {
+  const openReport = async (week: number = 0) => {
     try {
-      setReport(await invoke<WeeklyReport>("get_weekly_report"));
+      setReportWeek(week);
+      setReport(
+        await invoke<WeeklyReport>("get_weekly_report_at", { weeksAgo: week }),
+      );
       setReportPngPath("");
       setReportOpen(true);
     } catch (e) {
-      setErr(String(e));
+      showError(e);
     }
   };
 
@@ -150,9 +167,20 @@ export const MainWindow: React.FC = () => {
     try {
       const path = await invoke<string>("export_weekly_report_png");
       setReportPngPath(path);
-      setErr("");
+      showSuccess("周报 PNG 已导出");
+      // #11：若设置开启，导出后自动打开所在目录并选中文件
+      if (settings.auto_open_exports) {
+        try {
+          const info = await invoke<{ exports_dir: string; data_dir: string; mode: string }>("get_path_info");
+          setDataDir(info.data_dir);
+          setPathMode(info.mode);
+          await invoke<void>("reveal_path", { path: path || info.exports_dir });
+        } catch (e) {
+          showError(e);
+        }
+      }
     } catch (e) {
-      setErr(`导出失败：${String(e)}`);
+      showError(`导出失败：${String(e)}`);
     } finally {
       setExporting(false);
     }
@@ -170,7 +198,7 @@ export const MainWindow: React.FC = () => {
       // reveal_path 会打开资源管理器并选中对应文件/目录
       await invoke<void>("reveal_path", { path: reportPngPath || info.exports_dir });
     } catch (e) {
-      setErr(`打开目录失败：${String(e)}`);
+      showError(`打开目录失败：${String(e)}`);
     }
   };
 
@@ -179,22 +207,67 @@ export const MainWindow: React.FC = () => {
     setSettings(s);
     const procs = await invoke<string[]>("list_running_processes").catch(() => []);
     setProcesses(procs);
+    // #14：同步加载模型清单
+    try {
+      setModels(await invoke<ModelEntry[]>("list_models"));
+    } catch (e) {
+      showError(e);
+    }
+    try {
+      const info = await invoke<{ data_dir: string; mode: string }>("get_path_info");
+      setDataDir(info.data_dir);
+      setPathMode(info.mode);
+    } catch {
+      /* 忽略，下方默认展示空 */
+    }
     setSettingsOpen(true);
   };
 
   const start = async () => {
-    setErr("");
     try {
       await invoke("start_focus_session", { durationMins: duration });
     } catch (e) {
-      setErr(String(e));
+      showError(e);
     }
   };
 
   const saveSettings = async () => {
-    await invoke("save_settings", { settings });
-    setSettingsOpen(false);
-    await refresh();
+    try {
+      await invoke("save_settings", { settings });
+      setSettingsOpen(false);
+      showSuccess("设置已保存");
+      await refresh();
+    } catch (e) {
+      showError(e);
+    }
+  };
+
+  // #14：重新触发种子模型复制
+  const reseedModels = async () => {
+    if (reseeding) return;
+    setReseeding(true);
+    try {
+      const n = await invoke<number>("reseed_models");
+      setModels(await invoke<ModelEntry[]>("list_models"));
+      push(n > 0 ? `已复制 ${n} 个种子模型` : "无可复制的种子模型（可能已存在）", n > 0 ? "success" : "info");
+    } catch (e) {
+      showError(e);
+    } finally {
+      setReseeding(false);
+    }
+  };
+
+  // #16：加载最近 L3 原因记录
+  const loadL3Reasons = async () => {
+    if (l3Loading) return;
+    setL3Loading(true);
+    try {
+      setL3Reasons(await invoke<L3ReasonEntry[]>("get_l3_reasons", { limit: 20 }));
+    } catch (e) {
+      showError(e);
+    } finally {
+      setL3Loading(false);
+    }
   };
 
   const whitelist: string[] = (() => {
@@ -235,7 +308,7 @@ export const MainWindow: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={openReport}
+            onClick={() => void openReport()}
             className="df-btn flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5"
             title="周报"
           >
@@ -321,11 +394,10 @@ export const MainWindow: React.FC = () => {
                     type="button"
                     className="df-btn rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20"
                     onClick={async () => {
-                      setErr("");
                       try {
                         await invoke("test_inject_level", { level: lv });
                       } catch (e) {
-                        setErr(String(e));
+                        showError(e);
                       }
                     }}
                   >
@@ -336,14 +408,13 @@ export const MainWindow: React.FC = () => {
                   type="button"
                   className="df-btn rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-500/20"
                   onClick={async () => {
-                    setErr("");
                     try {
                       await invoke("force_exit_session");
                     } catch {
                       try {
                         await invoke("test_exit_session");
                       } catch (e) {
-                        setErr(String(e));
+                        showError(e);
                       }
                     }
                   }}
@@ -366,8 +437,6 @@ export const MainWindow: React.FC = () => {
               </ul>
             </div>
           )}
-
-          {err && <p className="text-sm text-red-400">{err}</p>}
         </main>
 
         {/* Right: vision status sidebar */}
@@ -555,6 +624,16 @@ export const MainWindow: React.FC = () => {
                 />
                 测试模式（L1=3s L2=6s L3=9s，放回 1s 恢复）
               </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={settings.auto_open_exports}
+                  onChange={(e) =>
+                    setSettings({ ...settings, auto_open_exports: e.target.checked })
+                  }
+                />
+                导出周报后自动打开所在目录
+              </label>
             </div>
 
             <label className="mb-4 block text-sm text-slate-300">
@@ -577,13 +656,47 @@ export const MainWindow: React.FC = () => {
                   await invoke("restart_vision");
                   setVision(await invoke<VisionStatus>("get_vision_status"));
                 } catch (e) {
-                  setErr(String(e));
+                  showError(e);
                 }
               }}
             >
               <RefreshCw size={14} />
               重启视觉管线
             </button>
+
+            {/* #14：模型自管理 */}
+            <div className="df-panel mb-4 rounded-lg border border-white/5 bg-white/[0.02] p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-300">
+                  <Database size={13} className="text-slate-500" />
+                  ONNX 模型
+                </p>
+                <button
+                  type="button"
+                  disabled={reseeding}
+                  onClick={() => void reseedModels()}
+                  className="df-btn rounded-lg border border-emerald-600/50 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+                >
+                  {reseeding ? "复制中…" : "重新拉取种子模型"}
+                </button>
+              </div>
+              {models.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  data/models 下未发现 ONNX。点击「重新拉取」期待安装目录/资源旁 seed；视觉会自动重试加载。
+                </p>
+              ) : (
+                <ul className="space-y-0.5 text-xs text-slate-400">
+                  {models.map((m) => (
+                    <li key={m.name} className="flex items-center justify-between gap-2">
+                      <span className="truncate font-mono">{m.name}</span>
+                      <span className="shrink-0 text-slate-600">
+                        {(m.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             <p className="mb-1 text-sm font-semibold text-slate-300">
               白名单进程
@@ -602,7 +715,8 @@ export const MainWindow: React.FC = () => {
             </div>
 
             <p className="mb-4 text-xs text-slate-500">
-              数据目录：D:\3_Code_Projects\DeepFlow\data
+              数据目录：{dataDir || "（未加载）"}
+              {pathMode ? <span className="ml-1 text-slate-600">（{pathMode}）</span> : null}
             </p>
 
             <button
@@ -621,14 +735,38 @@ export const MainWindow: React.FC = () => {
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
           <div className="df-panel w-full max-w-lg rounded-2xl p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-100">本周正向周报</h2>
-              <button
-                type="button"
-                onClick={() => setReportOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-white/5"
-              >
-                <X size={18} />
-              </button>
+              <h2 className="text-lg font-bold text-slate-100">
+                {reportWeek === 0 ? "本周" : `近 ${reportWeek + 1} 周前`}正向周报
+              </h2>
+              <div className="flex items-center gap-2">
+                <select
+                  className="df-input rounded-lg px-2 py-1 text-xs"
+                  value={reportWeek}
+                  onChange={(e) => void openReport(Number(e.target.value))}
+                >
+                  {[0, 1, 2, 3].map((w) => (
+                    <option key={w} value={w}>
+                      {w === 0 ? "本周" : `${w} 周前`}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => void loadL3Reasons()}
+                  disabled={l3Loading}
+                  title="查看 L3 原因记录"
+                  className="df-btn rounded-lg border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50"
+                >
+                  <History size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(false)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-white/5"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
             <ul className="space-y-2 text-sm text-slate-300">
               <li>总专注：{report.total_focus_minutes} 分钟</li>
@@ -670,9 +808,27 @@ export const MainWindow: React.FC = () => {
               数据目录：{dataDir || "点击「打开所在目录」查看"}
               {pathMode ? <span className="ml-1 text-slate-600">（{pathMode}）</span> : null}
             </p>
+            {/* #16：L3 原因记录 */}
+            {l3Reasons.length > 0 && (
+              <div className="mt-3 rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                  <Database size={12} className="text-slate-500" />
+                  近期 L3 原因（点下拉按钮可刷新）
+                </p>
+                <ul className="max-h-32 space-y-0.5 overflow-auto df-scroll text-xs text-slate-400">
+                  {l3Reasons.map((r, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="shrink-0 font-mono text-slate-600">{r[0]}</span>
+                      <span className="text-slate-300">{r[1]}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} onRemove={remove} />
     </div>
   );
 };

@@ -8,6 +8,15 @@ use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 type S<'a> = State<'a, Arc<AppState>>;
 
+/// #14：模型文件元信息。
+#[derive(serde::Serialize)]
+pub struct ModelEntry {
+    pub name: String,
+    pub size: u64,
+    /// 修改时间（本地 RFC3339，缺失则为空串）。
+    pub modified: String,
+}
+
 #[tauri::command]
 pub async fn get_fsm_state(state: S<'_>) -> Result<SystemState, String> {
     Ok(state.fsm.get_state())
@@ -292,6 +301,49 @@ pub(crate) fn reveal_path_sync(p: &std::path::Path) -> Result<(), String> {
 pub async fn reveal_path(path: String) -> Result<(), String> {
     let p = std::path::PathBuf::from(path.trim());
     reveal_path_sync(&p)
+}
+
+/// #14：列出 data/models 目录下的 ONNX 模型文件名 + 字节数 + 修改时间戳（RFC3339）。
+#[tauri::command]
+pub async fn list_models(state: S<'_>) -> Result<Vec<ModelEntry>, String> {
+    let dir = state.data_dir.join("models");
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        for ent in rd.flatten() {
+            let p = ent.path();
+            if p.extension().and_then(|x| x.to_str()).map(|x| x.eq_ignore_ascii_case("onnx")).unwrap_or(false) {
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                let size = ent.metadata().map(|m| m.len()).unwrap_or(0);
+                let modified = ent.metadata().ok().and_then(|m| m.modified().ok())
+                    .map(|t| {
+                        let dt = chrono::DateTime::<chrono::Local>::from(t);
+                        dt.to_rfc3339()
+                    })
+                    .unwrap_or_default();
+                out.push(ModelEntry { name, size, modified });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// #14：手动重新触发 seed_models（从安装目录/资源旁复制缺失 ONNX），返回本次复制数。
+#[tauri::command]
+pub async fn reseed_models(state: S<'_>) -> Result<u32, String> {
+    Ok(crate::seed_models_if_needed(&state.data_dir))
+}
+
+/// #15：返回指定历史周的聚合周报（weeks_ago=0 为本周）。
+#[tauri::command]
+pub async fn get_weekly_report_at(state: S<'_>, weeks_ago: u32) -> Result<WeeklyReport, String> {
+    state.logger.lock().weekly_report_weeks_ago(weeks_ago).map_err(|e| e.to_string())
+}
+
+/// #16：返回最近 limit 条 L3 原因记录，每条为 (created_at, reason)。
+#[tauri::command]
+pub async fn get_l3_reasons(state: S<'_>, limit: Option<u32>) -> Result<Vec<(String, String)>, String> {
+    let n = limit.unwrap_or(20).clamp(1, 200);
+    state.logger.lock().list_l3_reasons(n).map_err(|e| e.to_string())
 }
 
 

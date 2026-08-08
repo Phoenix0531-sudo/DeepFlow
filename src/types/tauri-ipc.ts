@@ -44,6 +44,8 @@ export interface SettingsRecord {
   roi_json: string;
   whitelist_json: string;
   pending_debt_secs: number;
+  /** #11：周报 PNG 导出后自动打开所在目录 */
+  auto_open_exports: boolean;
 }
 
 export interface WeeklyReport {
@@ -60,6 +62,16 @@ export interface WhitelistHit {
   process_name: string;
   pid: number;
 }
+
+/** #14：data/models 目录下的 ONNX 模型文件元信息 */
+export interface ModelEntry {
+  name: string;
+  size: number;
+  modified: string;
+}
+
+/** #16：L3 原因记录 [created_at, reason] */
+export type L3ReasonEntry = [string, string];
 
 /** 归一化 ROI，坐标系 0..1 */
 export interface RoiRect {

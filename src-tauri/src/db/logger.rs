@@ -27,6 +27,8 @@ pub struct SettingsRecord {
     pub roi_json: String,
     pub whitelist_json: String,
     pub pending_debt_secs: u32,
+    /// #11：周报 PNG 导出后自动打开所在目录。
+    pub auto_open_exports: bool,
 }
 
 impl Default for SettingsRecord {
@@ -44,6 +46,7 @@ impl Default for SettingsRecord {
             roi_json: String::new(),
             whitelist_json: "[]".into(),
             pending_debt_secs: 0,
+            auto_open_exports: true,
         }
     }
 }
@@ -112,6 +115,17 @@ impl LocalLogger {
                 [],
             )?;
         }
+        let has_auto_open: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name = 'auto_open_exports')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_auto_open {
+            self.conn.execute(
+                "ALTER TABLE settings ADD COLUMN auto_open_exports INTEGER NOT NULL DEFAULT 1",
+                [],
+            )?;
+        }
         Ok(())
     }
 
@@ -165,7 +179,7 @@ impl LocalLogger {
             r#"
             SELECT setup_completed, default_focus_mins, debt_floor_secs, emergency_hotkey,
                    debug_mode, test_mode, vision_enabled, prefer_cpu_inference, camera_name, roi_json,
-                   whitelist_json, pending_debt_secs
+                   whitelist_json, pending_debt_secs, auto_open_exports
             FROM settings WHERE id = 1
             "#,
             [],
@@ -183,6 +197,7 @@ impl LocalLogger {
                     roi_json: row.get(9)?,
                     whitelist_json: row.get(10)?,
                     pending_debt_secs: row.get(11)?,
+                    auto_open_exports: row.get::<_, i64>(12)? != 0,
                 })
             },
         )
@@ -203,7 +218,8 @@ impl LocalLogger {
               camera_name = ?9,
               roi_json = ?10,
               whitelist_json = ?11,
-              pending_debt_secs = ?12
+              pending_debt_secs = ?12,
+              auto_open_exports = ?13
             WHERE id = 1
             "#,
             params![
@@ -219,6 +235,7 @@ impl LocalLogger {
                 s.roi_json,
                 s.whitelist_json,
                 s.pending_debt_secs,
+                s.auto_open_exports as i64,
             ],
         )?;
         Ok(())
@@ -282,16 +299,23 @@ impl LocalLogger {
     /// A主 C辅：以会话/拉回/休息结束的小时直方图为主，峰值小时 A；
     /// 向两侧扩展连续次高小时得到辅助窗 C，格式 `HH:00 - HH:00`。
     fn compute_golden_hour_range(&self) -> SqlResult<String> {
-        let mut scores = [0u32; 24];
-        let mut stmt = self.conn.prepare(
+        self.compute_golden_hour_range_in("datetime('now','-7 days','localtime')", "datetime('now')")
+    }
+
+    /// #15：指定时间窗内的黄金时段范围（与 compute_golden_hour_range 同逻辑，仅 WHERE bounds 不同）。
+    /// bounds 为 SQL 字面量片段，由调用方以 u32 安全生成。
+    fn compute_golden_hour_range_in(&self, bounds: &str, end_bound: &str) -> SqlResult<String> {
+        let sql = format!(
             r#"
             SELECT CAST(strftime('%H', created_at) AS INTEGER) AS h,
                    event_type,
                    COALESCE(duration_secs, 0) AS dur
             FROM focus_logs
-            WHERE created_at >= datetime('now','-7 days','localtime')
-            "#,
-        )?;
+            WHERE created_at >= {bounds} AND created_at < {end_bound}
+            "#
+        );
+        let mut scores = [0u32; 24];
+        let mut stmt = self.conn.prepare(&sql)?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, i64>(0).unwrap_or(0) as usize,
@@ -343,6 +367,99 @@ impl LocalLogger {
         let end_h = if lo == hi { (hi + 1) % 24 } else { (hi + 1) % 24 };
         let end_m = if lo == hi { 30 } else { 0 };
         Ok(format!("{lo:02}:00 - {end_h:02}:{end_m:02}"))
+    }
+
+    /// #16：返回最近 `limit` 条 L3 原因（event_type='PAUSE_START' 且 reason 非空）。
+    /// 每条 = (created_at, reason)，按时间倒序。
+    pub fn list_l3_reasons(&self, limit: u32) -> SqlResult<Vec<(String, String)>> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT created_at, reason FROM focus_logs
+            WHERE event_type = 'PAUSE_START' AND reason IS NOT NULL AND reason <> ''
+            ORDER BY created_at DESC
+            LIMIT ?1
+            "#,
+        )?;
+        let rows = stmt.query_map(params![limit], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r?);
+        }
+        Ok(out)
+    }
+
+    /// #15：指定一周（weeks_ago=0 表示本周）的聚合周报，逻辑与 generate_weekly_report 一致，
+    /// 仅时间窗口相对 (weeks_ago+1)*7 .. weeks_ago*7 天。weeks_ago 自 u32，format! 安全。
+    pub fn weekly_report_weeks_ago(&self, weeks_ago: u32) -> SqlResult<WeeklyReport> {
+        let start_days = ((weeks_ago + 1) * 7) as i64;
+        let end_days = (weeks_ago * 7) as i64;
+        let prev_start = ((weeks_ago + 2) * 7) as i64;
+        let prev_end = ((weeks_ago + 1) * 7) as i64;
+        // end_days=0 时 exclusive 上界用 +1 day，确保「今天」被包含（与 generate_weekly_report 一致）
+        let bounds = format!("datetime('now','-{start_days} days','localtime')");
+        let end_bound = if end_days == 0 {
+            "datetime('now','+1 day','localtime')".to_string()
+        } else {
+            format!("datetime('now','-{end_days} days','localtime')")
+        };
+        let prev_start_bound = format!("datetime('now','-{prev_start} days','localtime')");
+        let prev_end_bound = format!("datetime('now','-{prev_end} days','localtime')");
+        let day_start = format!("date('now','-{start_days} days','localtime')");
+        let day_end = if end_days == 0 {
+            "date('now','+1 day','localtime')".to_string()
+        } else {
+            format!("date('now','-{end_days} days','localtime')")
+        };
+        let prev_day_start = format!("date('now','-{prev_start} days','localtime')");
+        let prev_day_end = format!("date('now','-{prev_end} days','localtime')");
+
+        let pullbacks: u32 = self.conn.query_row(
+            &format!("SELECT COUNT(*) FROM focus_logs WHERE event_type = 'PULLBACK' AND created_at >= {bounds} AND created_at < {end_bound}"),
+            [],
+            |row| row.get(0),
+        )?;
+        let rest_secs: u32 = self.conn.query_row(
+            &format!("SELECT COALESCE(SUM(duration_secs),0) FROM focus_logs WHERE event_type = 'PAUSE_END' AND created_at >= {bounds} AND created_at < {end_bound}"),
+            [],
+            |row| row.get(0),
+        )?;
+        let focus_secs: u32 = self.conn.query_row(
+            &format!("SELECT COALESCE(SUM(focus_secs),0) FROM daily_focus WHERE day >= {day_start} AND day < {day_end}"),
+            [],
+            |row| row.get(0),
+        )?;
+        let last_week_focus: u32 = self.conn.query_row(
+            &format!("SELECT COALESCE(SUM(focus_secs),0) FROM daily_focus WHERE day >= {prev_day_start} AND day < {prev_day_end}"),
+            [],
+            |row| row.get(0),
+        )?;
+        let interrupted: u32 = self.conn.query_row(
+            &format!("SELECT COUNT(*) FROM focus_logs WHERE event_type IN ('EMERGENCY_EXIT','SEVERE','L3') AND created_at >= {bounds} AND created_at < {end_bound}"),
+            [],
+            |row| row.get(0),
+        )?;
+        let sessions: u32 = self
+            .conn
+            .query_row(
+                &format!("SELECT COUNT(*) FROM focus_logs WHERE event_type = 'SESSION_START' AND created_at >= {bounds} AND created_at < {end_bound}"),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0)
+            .max(1);
+        let total_focus_minutes = focus_secs / 60;
+        let golden = self.compute_golden_hour_range_in(&bounds, &end_bound).unwrap_or_else(|_| "暂无足够数据".into());
+        Ok(WeeklyReport {
+            total_focus_minutes,
+            successful_pullbacks_count: pullbacks,
+            total_borrowed_rest_minutes: rest_secs / 60,
+            golden_focus_hour_range: golden,
+            avg_focus_minutes: total_focus_minutes / sessions,
+            interrupted_count: interrupted,
+            vs_last_week_focus_delta_minutes: total_focus_minutes as i32 - (last_week_focus / 60) as i32,
+        })
     }
 }
 
@@ -477,6 +594,46 @@ mod tests {
         assert_eq!(r.total_focus_minutes, 30, "only today (last 7 days) counts");
         // delta = 本周 30 − 上周 60 = -30
         assert_eq!(r.vs_last_week_focus_delta_minutes, -30);
+    }
+
+    /// #15：Weekly_report_weeks_ago 应跳过指定周隔的窗口。
+    #[test]
+    fn weekly_report_weeks_ago_returns_window() {
+        let (logger, _dir) = open_tmp();
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        add_day(&logger, &today, 1800);
+        // 8 天前 = 上周，在 weeks_ago=1 的窗口（8-14 天 = "1 周前"）
+        let eight_days = (chrono::Local::now() - chrono::Duration::days(8))
+            .format("%Y-%m-%d")
+            .to_string();
+        add_day(&logger, &eight_days, 3600);
+
+        // weeks_ago=0 = 本周 = 今天 1800s = 30 分
+        let r0 = logger.weekly_report_weeks_ago(0).unwrap();
+        assert_eq!(r0.total_focus_minutes, 30);
+        // weeks_ago=1 = "1 周前" 窗口 [8,15) 天 = 8 天那日 3600s = 60 分
+        let r1 = logger.weekly_report_weeks_ago(1).unwrap();
+        assert_eq!(r1.total_focus_minutes, 60);
+        // weeks_ago=2 = 无数据 → 0 分
+        let r2 = logger.weekly_report_weeks_ago(2).unwrap();
+        assert_eq!(r2.total_focus_minutes, 0);
+    }
+
+    /// #16：List_l3_reasons 应返回 PAUSE_START 且 reason 非空的记录倒序。
+    #[test]
+    fn list_l3_reasons_filters_pause_start_with_reason() {
+        let (logger, _dir) = open_tmp();
+        let now = now_local_iso();
+        // 纯 PAUSE_START ✓
+        insert_log_at(&logger, "s1", "PAUSE_START", Some("渮机"), 0, &now);
+        // PAUSE_START 但 reason 为空 → 不记
+        insert_log_at(&logger, "s1", "PAUSE_START", Some(""), 0, &now);
+        // L3 事件不是 PAUSE_START → 不记
+        insert_log_at(&logger, "s1", "L3", Some("他事件"), 0, &now);
+
+        let reasons = logger.list_l3_reasons(20).unwrap();
+        assert_eq!(reasons.len(), 1);
+        assert_eq!(reasons[0].1, "渮机");
     }
 
     #[test]
