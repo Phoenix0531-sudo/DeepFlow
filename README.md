@@ -71,11 +71,13 @@ npm.cmd run build
 - **P0**（done）：多窗、FSM、托盘、遮罩、白名单扫描、债务、设置、调试日志
 - **P1**（done）：摄像头 + ONNX 检测 + L1–L3 + Setup 预览/ROI、滑窗墙钟 hold
 - **P2**（done）：周报 PNG 导出（`export_weekly_report_png`，时间戳文件名）、紧急热键可配（设置页四选一：双击 ESC / F9 / Ctrl+Shift+E / Ctrl+Alt+Q，保存后热更新）、内置语音识别（Web Speech API，mic 按钮）、数据目录四模式策略 + 便携标记/seed 模型复制
-- **P3**（待办）：模型自管理 UI（重下载/切换）、周报历史周查看/对比、L3 原因回看、托盘菜单扩展、CSP 收紧
+- **P3**（进行中）：进程白名单强制最小化/关闭（`whitelist_action`）、摄像头下拉统一、聚焦时长上下限、Setup 可配债务下限、白名单进程搜索、债务结算、模型自管理 UI（`list_models`/`reseed_models`）、周报历史周查看、L3 原因回看、托盘菜单扩展、CSP 收紧、浮钟置顶可调
 
 ## 紧急退出热键
 
 设置页「紧急热键」字段选 4 种之一；`save_settings` 后 `keyboard_hook` 原子热更新（无需重启）。
+
+**副作用**：紧急退出会立即结束当前专注会话，该次会话不计入今日专注；若处于 L3 颂罚，会写入 `EMERGENCY_EXIT` 日志事件（`focus_logs` 表，`event_type='emergency_exit'`，带 `reason='紧急退出'`），并在周报中以「中断」统计。同时隐藏浮钟、复位遮罩契约。
 
 ## 干预约定（摘要）
 
@@ -103,4 +105,4 @@ cargo test
 
 ## 主要 IPC 命令
 
-设置：`get_settings` / `save_settings`、路径：`get_path_info` / `reveal_path`、周报：`get_weekly_report` / `get_weekly_report_at` / `export_weekly_report_png`、L3 原因：`get_l3_reasons`、模型管理：`list_models` / `reseed_models`、视觉：`get_vision_status` / `restart_vision`、测试注入：`test_inject_level` / `test_exit_session`。
+设置：`get_settings` / `save_settings`、路径：`get_path_info` / `reveal_path`、会话：`start_focus_session` / `stop_session` / `request_temporary_pause` / `resume_focus_session` / `skip_debt_and_resume`、周报：`get_weekly_report` / `get_weekly_report_at` / `export_weekly_report_png`、L3 原因：`get_l3_reasons`、模型管理：`list_models` / `reseed_models`、视觉：`get_vision_status` / `restart_vision` / `get_available_cameras`、进程：`list_running_processes`、测试注入：`test_inject_level` / `test_exit_session`、 Setup：`check_setup` / `start_setup` / `open_setup_window`。
