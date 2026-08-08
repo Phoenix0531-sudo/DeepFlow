@@ -295,6 +295,7 @@ export const SetupWindow: React.FC = () => {
                   }
                 />
                 优先 CPU 推理
+                <span className="text-xs text-slate-500">（不依赖 DirectML；兼容性更好但速度较慢）</span>
               </label>
             </div>
           )}
@@ -349,6 +350,25 @@ export const SetupWindow: React.FC = () => {
                       default_focus_mins: Math.min(
                         180,
                         Math.max(5, Number(e.target.value) || 45),
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <label className="text-sm text-slate-400">
+                债务下限（秒）
+                <input
+                  type="number"
+                  min={0}
+                  max={3600}
+                  className="df-input ml-2 w-20 rounded-lg px-2 py-1"
+                  value={settings.debt_floor_secs}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      debt_floor_secs: Math.min(
+                        3600,
+                        Math.max(0, Number(e.target.value) || 180),
                       ),
                     })
                   }

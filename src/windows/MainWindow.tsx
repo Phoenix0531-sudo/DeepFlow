@@ -110,6 +110,8 @@ export const MainWindow: React.FC = () => {
   const [pathMode, setPathMode] = useState<string>("");
   const [hits, setHits] = useState<WhitelistHit[]>([]);
   const [processes, setProcesses] = useState<string[]>([]);
+  // #39：白名单进程搜索
+  const [processSearch, setProcessSearch] = useState("");
   // #24：摄像头列表（与 SetupWindow 保持一致）
   const [cameras, setCameras] = useState<string[]>([]);
   const [duration, setDuration] = useState(45);
@@ -755,8 +757,22 @@ export const MainWindow: React.FC = () => {
             <p className="mb-1 text-sm font-semibold text-slate-300">
               白名单进程
             </p>
+            <input
+              type="text"
+              placeholder="搜索进程名…"
+              className="df-input mb-2 w-full rounded-lg px-2 py-1 text-xs"
+              value={processSearch}
+              onChange={(e) => setProcessSearch(e.target.value)}
+            />
             <div className="mb-4 max-h-48 overflow-auto rounded-lg border border-white/5 p-2 text-xs text-slate-400 df-scroll">
-              {(processes.length ? processes : whitelist).slice(0, 60).map((p) => (
+              {(processes.length ? processes : whitelist)
+                .filter((p) =>
+                  processSearch.trim() === ""
+                    ? true
+                    : p.toLowerCase().includes(processSearch.toLowerCase()),
+                )
+                .slice(0, 60)
+                .map((p) => (
                 <label key={p} className="flex gap-2 py-0.5">
                   <input
                     type="checkbox"
