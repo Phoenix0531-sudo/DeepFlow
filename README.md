@@ -31,6 +31,17 @@ Windows 本地刷题专注壳（Tauri 2 + React 19）：主屏遮罩、进程白
 
 模型路径：`<data>/models/yolo11n.onnx`（无模型时回退启发式检测器）。
 
+### #13 路径策略主题验证手册
+
+四种模式需在各自环境下手工验收，重点检查 `get_path_info` 返回的 `mode` 字段与写入位置：
+
+| 模式 | 触发条件 | 预期 mode | 验证步骤 |
+| ---- | ------- | -------- | ------- |
+| env | `DEEPFLOW_DATA_DIR=D:/tmp/df` | `env` | 启动后看设置页数据目录、写一条记录后确认出现在 D:/tmp/df |
+| 便携 | exe 旁放 `portable.flag` | `portable` | exe 旁出现 data/；换机拷贝后路径跟随 exe |
+| 开发 | exe 路径在 `target/debug|release` | `dev` | 仓库 data/ 被使用 |
+| 安装 | `cargo tauri build` 生成的安装包安装 | `install` | `%LOCALAPPDATA%\DeepFlow\data` 被创建且写入 |
+
 ```bat
 python scripts/download_yolo_onnx.py
 ```
@@ -88,8 +99,8 @@ cd src-tauri
 cargo test
 ```
 
-现覆盖：键盘热键解析、启发式检测器、`is_operating_phone` 边界、周报 PNG 生成、SQLite 日志/周报聚合、路径策略判定。
+现覆盖：键盘热键解析、启发式检测器、`is_operating_phone` 边界、周报 PNG 生成、SQLite 日志/周报聚合、路径策略判定、FSM 集成冲烟（Start/L1/L3/原因/紧急退出）、历史周聚合、L3 原因回看。
 
 ## 主要 IPC 命令
 
-设置：`get_settings` / `save_settings`、路径：`get_path_info` / `reveal_path`、周报：`get_weekly_report` / `export_weekly_report_png`、视觉：`get_vision_status` / `restart_vision`、测试注入：`test_inject_level` / `test_exit_session`。
+设置：`get_settings` / `save_settings`、路径：`get_path_info` / `reveal_path`、周报：`get_weekly_report` / `get_weekly_report_at` / `export_weekly_report_png`、L3 原因：`get_l3_reasons`、模型管理：`list_models` / `reseed_models`、视觉：`get_vision_status` / `restart_vision`、测试注入：`test_inject_level` / `test_exit_session`。
