@@ -270,13 +270,18 @@ export const MainWindow: React.FC = () => {
     }
   };
 
-  // #33：检查更新
+  // #33：检查更新。后端在 updater 未配置（endpoints/pubkey 任一为空）时返回
+  // { available: false, configured: false }，前端据此给出“未配置”提示，
+  // 而不是误导用户“已是最新版本”。
   const checkUpdates = async () => {
     try {
       push("正在检查更新…", "info");
-      const r = await invoke<{ available: boolean; version?: string; body?: string }>(
-        "check_for_updates",
-      );
+      const r = await invoke<{
+        available: boolean;
+        configured?: boolean;
+        version?: string;
+        body?: string;
+      }>("check_for_updates");
       if (r.available) {
         const ok = window.confirm(
           `发现新版本 ${r.version ?? ""}\n\n${r.body ?? ""}\n\n是否立即下载并安装？`,
@@ -285,8 +290,12 @@ export const MainWindow: React.FC = () => {
           push("正在下载更新…", "info");
           await invoke("download_and_install_update");
         }
+      } else if (r.configured === false) {
+        showError(
+          "更新功能尚未配置：需在 tauri.conf.json 填入 updater 的 endpoints 与 pubkey，详见 docs/updater.md",
+        );
       } else {
-        showSuccess("已是最新版本（或未配置更新源）");
+        showSuccess("已是最新版本");
       }
     } catch (e) {
       showError(e);

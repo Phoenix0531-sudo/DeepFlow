@@ -470,10 +470,30 @@ pub async fn send_notification(app: AppHandle, title: String, body: String) -> R
         .map_err(|e| e.to_string())
 }
 
-/// #33：检查更新（需要 updater 配置有效 endpoint + pubkey）
+/// #33：检查更新。未配置 updater（endpoints/pubkey 任一为空）时返回
+/// `{ available: false, configured: false }`，前端据此给出"未配置"提示，
+/// 而不是误导用户"已是最新版本"。
 #[tauri::command]
 pub async fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, String> {
     use tauri_plugin_updater::UpdaterExt;
+    // 读取 tauri.conf.json 的 plugins.updater 配置，检测是否真正配置过。
+    let cfg = app.config();
+    let updater_cfg = cfg.plugins.0.get("updater");
+    let endpoints_empty = updater_cfg
+        .and_then(|v| v.get("endpoints"))
+        .map(|v| v.as_array().map(|a| a.is_empty()).unwrap_or(true))
+        .unwrap_or(true);
+    let pubkey_empty = updater_cfg
+        .and_then(|v| v.get("pubkey"))
+        .map(|v| v.as_str().map(|s| s.trim().is_empty()).unwrap_or(true))
+        .unwrap_or(true);
+    if endpoints_empty || pubkey_empty {
+        return Ok(serde_json::json!({
+            "available": false,
+            "configured": false,
+            "reason": "updater endpoints 或 pubkey 未配置",
+        }));
+    }
     let resp = app
         .updater_builder()
         .build()
@@ -484,16 +504,20 @@ pub async fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, Stri
     if let Some(update) = resp {
         Ok(serde_json::json!({
             "available": true,
+            "configured": true,
             "version": update.version,
             "date": update.date.map(|d| d.to_string()).unwrap_or_default(),
             "body": update.body.clone(),
         }))
     } else {
-        Ok(serde_json::json!({ "available": false }))
+        Ok(serde_json::json!({
+            "available": false,
+            "configured": true,
+        }))
     }
 }
 
-/// #33：下载并安装更新（安装后重启）
+/// #33：下载并安装更新（仅当已配置 updater 且存在更新时才调用）。安装完成后重启。
 #[tauri::command]
 pub async fn download_and_install_update(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_updater::UpdaterExt;

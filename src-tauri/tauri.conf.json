@@ -43,6 +43,7 @@
   },
   "plugins": {
     "updater": {
+      "_comment": "发布前必须替换 pubkey 与 endpoints。生成密钥：tauri signer sign --generate-key。详见 docs/updater.md。占位值将使 check_for_updates 返回 configured:false。",
       "pubkey": "",
       "endpoints": [],
       "windows": {
