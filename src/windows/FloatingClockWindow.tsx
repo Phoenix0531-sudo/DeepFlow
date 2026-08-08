@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Timer, Play, SkipForward } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Timer, Play, SkipForward, Pin } from "lucide-react";
 import { useTauriEvent } from "../hooks/useTauriEvents";
 import { EVT, type SettingsRecord, type SystemState } from "../types/tauri-ipc";
 
@@ -8,6 +9,8 @@ export const FloatingClockWindow: React.FC = () => {
   const [elapsed, setElapsed] = useState(0);
   const [reason, setReason] = useState("");
   const [floor, setFloor] = useState(180);
+  // #45：置顶可调
+  const [pinned, setPinned] = useState(true);
 
   useTauriEvent<SystemState>(
     EVT.fsm,
@@ -44,6 +47,14 @@ export const FloatingClockWindow: React.FC = () => {
 
   const debtPreview = Math.max(elapsed, floor);
 
+  const togglePin = async () => {
+    const next = !pinned;
+    setPinned(next);
+    try {
+      await getCurrentWindow().setAlwaysOnTop(next);
+    } catch {}
+  };
+
   return (
     <div
       className="box-border flex h-screen w-screen flex-col overflow-hidden select-none"
@@ -68,6 +79,15 @@ export const FloatingClockWindow: React.FC = () => {
         >
           {reason || "无原因"}
         </span>
+        {/* #45：置顶快捷 */}
+        <button
+          type="button"
+          onClick={togglePin}
+          className="df-btn shrink-0 rounded px-1 text-slate-500 hover:text-slate-200"
+          title={pinned ? "取消置顶" : "置顶"}
+        >
+          <Pin size={11} className={pinned ? "text-amber-400" : ""} />
+        </button>
       </div>
 
       {/* Timer + debt, single compact block */}

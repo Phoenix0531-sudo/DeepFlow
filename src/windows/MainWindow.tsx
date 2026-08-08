@@ -354,8 +354,25 @@ export const MainWindow: React.FC = () => {
               <span className="font-mono text-lg text-amber-300">{fmt(today)}</span>
             </p>
             {settings.pending_debt_secs > 0 && (
-              <p className="mt-1 text-xs text-orange-400">
+              <p className="mt-1 flex items-center gap-2 text-xs text-orange-400">
                 未还债务 {fmt(settings.pending_debt_secs)}（下次开始将并入）
+                <button
+                  type="button"
+                  className="df-btn rounded border border-orange-500/40 bg-orange-500/10 px-2 py-0.5 text-[11px] font-semibold text-orange-300 hover:bg-orange-500/20"
+                  onClick={async () => {
+                    try {
+                      await invoke("save_settings", {
+                        settings: { ...settings, pending_debt_secs: 0 },
+                      });
+                      setSettings({ ...settings, pending_debt_secs: 0 });
+                      showSuccess("债务已结清");
+                    } catch (e) {
+                      showError(e);
+                    }
+                  }}
+                >
+                  立即结清
+                </button>
               </p>
             )}
           </div>
@@ -691,8 +708,10 @@ export const MainWindow: React.FC = () => {
               className="df-btn mb-4 flex items-center gap-1.5 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-white/5"
               onClick={async () => {
                 try {
+                  showSuccess("正在重启视觉管线…");
                   await invoke("restart_vision");
                   setVision(await invoke<VisionStatus>("get_vision_status"));
+                  showSuccess("视觉管线已重启");
                 } catch (e) {
                   showError(e);
                 }
@@ -715,12 +734,12 @@ export const MainWindow: React.FC = () => {
                   onClick={() => void reseedModels()}
                   className="df-btn rounded-lg border border-emerald-600/50 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
                 >
-                  {reseeding ? "复制中…" : "重新拉取种子模型"}
+                  {reseeding ? "复制中…" : "从安装目录复制种子模型"}
                 </button>
               </div>
               {models.length === 0 ? (
                 <p className="text-xs text-slate-500">
-                  data/models 下未发现 ONNX。点击「重新拉取」期待安装目录/资源旁 seed；视觉会自动重试加载。
+                  data/models 下未发现 ONNX。点击「从安装目录复制种子模型」会从安装/资源旁 seed 目录复制内置 ONNX；视觉会自动重试加载。
                 </p>
               ) : (
                 <ul className="space-y-0.5 text-xs text-slate-400">
