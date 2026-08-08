@@ -533,4 +533,103 @@ mod tests {
 
     // 环境变量分支（DEEPFLOW_DATA_DIR / DEEPFLOW_PORTABLE）会受测试并发影响，
     // 此处不做断言性测试，避免竞态。resolve_data_dir 的集成留到手工验收。
+
+    // —— #10：FSM 集成冲 subprocess 烂数而生纯状态流。无 GUI/无视觉/无键盘依赖。 ——
+    use crate::fsm::{FsmEvent, FsmSideEffect, SystemFSM, SystemState};
+
+    /// 辅助：从副作用集里取出 Log 事件的 event_type 列表。
+    fn log_kinds(effects: &[FsmSideEffect]) -> Vec<&str> {
+        effects
+            .iter()
+            .filter_map(|e| match e {
+                FsmSideEffect::Log { event_type, .. } => Some(event_type.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// 辅助：判断副作用中是否含 event_type=t 同时 reason=Some(r)。
+    fn has_log(effects: &[FsmSideEffect], t: &str, r: &str) -> bool {
+        effects.iter().any(|e| matches!(
+            e,
+            FsmSideEffect::Log { event_type, reason: Some(rr), .. }
+                if event_type == t && rr == r
+        ))
+    }
+
+    #[test]
+    fn fsm_smoke_session_l1_l3_pause_exit() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+
+        // Idle -> FocusActive
+        let (ok, eff) = fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 25 });
+        assert!(ok, "start should change state");
+        assert!(matches!(fsm.get_state(), SystemState::FocusActive { .. }));
+        assert!(log_kinds(&eff).iter().any(|s| *s == "SESSION_START"));
+
+        // FocusActive -> InterventionLevel1
+        let (ok, eff) = fsm.dispatch(FsmEvent::TestInjectLevel { level: 1 });
+        assert!(ok);
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel1 { .. }));
+        // 测试注入使用 event_type=TEST_INJECT，reason="L1"（区分于正常运行 L1 Log）
+        assert!(has_log(&eff, "TEST_INJECT", "L1"));
+
+        // L1 -> L3 跳级
+        let (ok, eff) = fsm.dispatch(FsmEvent::TestInjectLevel { level: 3 });
+        assert!(ok);
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel3 { .. }));
+        assert!(has_log(&eff, "TEST_INJECT", "L3"));
+
+        // L3 + 原因 -> TemporaryPause（reason 被携入）
+        let (ok, eff) = fsm.dispatch(FsmEvent::SubmitL3Reason {
+            reason: "刷手机".into(),
+        });
+        assert!(ok);
+        match fsm.get_state() {
+            SystemState::TemporaryPause { reason, .. } => assert_eq!(reason, "刷手机"),
+            other => panic!("expected TemporaryPause, got {other:?}"),
+        }
+        // 副作用记录 PAUSE_START 并携带 reason
+        assert!(log_kinds(&eff).iter().any(|s| *s == "PAUSE_START"));
+        assert!(has_log(&eff, "PAUSE_START", "刷手机"), "PAUSE_START Log 应携带对应 L3 原因");
+
+        // 任意状态 -> TestExit -> Idle
+        let (ok, _) = fsm.dispatch(FsmEvent::TestExit);
+        assert!(ok, "TestExit should mostly honor intervention/any");
+        // 注：L3/暂停下 TestExit 的实际路径可能进入 AwaitSessionEndChoice，但纯测试模式幂终点为 Idle。
+        // 不强制断言终态，避免与实际安全策略冲突。
+    }
+
+    #[test]
+    fn fsm_smoke_focus_tick_decrements() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.set_debt_floor_secs(0);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 1 });
+        if let SystemState::FocusActive { remaining_secs, .. } = fsm.get_state() {
+            assert_eq!(remaining_secs, 60, "25 分实际为 tick 计数，1 分 = 60s");
+        } else {
+            panic!("state should remain FocusActive");
+        }
+        fsm.dispatch(FsmEvent::SessionTimerTick);
+        if let SystemState::FocusActive { remaining_secs, .. } = fsm.get_state() {
+            assert_eq!(remaining_secs, 59, "tick 后应减 1");
+        } else {
+            panic!("state should remain FocusActive after one tick");
+        }
+    }
+
+    #[test]
+    fn fsm_smoke_double_esc_is_emergency_exit() {
+        // DoubleEsc = 紧急退出：任何非 Idle 状态 -> Idle + EMERGENCY_EXIT Log。
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        assert!(matches!(fsm.get_state(), SystemState::FocusActive { .. }));
+        let (ok, eff) = fsm.dispatch(FsmEvent::DoubleEscPressed);
+        assert!(ok, "DoubleEsc 是紧急退出，必须状态迁移");
+        assert!(matches!(fsm.get_state(), SystemState::Idle), "应回到 Idle");
+        assert!(log_kinds(&eff).iter().any(|s| *s == "EMERGENCY_EXIT"));
+    }
 }

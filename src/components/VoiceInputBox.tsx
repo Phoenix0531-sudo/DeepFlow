@@ -80,6 +80,11 @@ export const VoiceInputBox: React.FC<Props> = ({
           {err}
         </div>
       ) : null}
+      {!supported ? (
+        <div className="absolute -bottom-6 left-0 text-xs text-slate-400">
+          当前 WebView 不支持语音识别，请键盘输入。
+        </div>
+      ) : null}
     </div>
   );
 };
