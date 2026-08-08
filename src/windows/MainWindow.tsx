@@ -268,6 +268,39 @@ export const MainWindow: React.FC = () => {
     }
   };
 
+  // #28 B1：导出全部数据 JSON
+  const exportAllData = async () => {
+    try {
+      const path = await invoke<string>("export_all_data");
+      showSuccess(`已导出：${path}`);
+      try {
+        await invoke("reveal_path", { path });
+      } catch {
+        /* 打开目录失败不阻断 */
+      }
+    } catch (e) {
+      showError(e);
+    }
+  };
+
+  // #28 B1：清空历史（可选重置设置）
+  const clearAllData = async (resetSettings: boolean) => {
+    const msg = resetSettings
+      ? "将清空全部日志/专注记录，并重置设置为默认。此操作不可撤销，确认？"
+      : "将清空全部日志与每日专注累计，保留当前设置。此操作不可撤销，确认？";
+    if (!window.confirm(msg)) return;
+    try {
+      await invoke("clear_all_data", { clearSettings: resetSettings });
+      showSuccess(resetSettings ? "数据已清空并重置设置" : "历史数据已清空");
+      await refresh();
+      if (resetSettings) {
+        setSettingsOpen(false);
+      }
+    } catch (e) {
+      showError(e);
+    }
+  };
+
   // #16：加载最近 L3 原因记录
   const loadL3Reasons = async () => {
     if (l3Loading) return;
@@ -835,10 +868,38 @@ export const MainWindow: React.FC = () => {
               ))}
             </div>
 
-            <p className="mb-4 text-xs text-slate-500">
+            <p className="mb-2 text-xs text-slate-500">
               数据目录：{dataDir || "（未加载）"}
               {pathMode ? <span className="ml-1 text-slate-600">（{pathMode}）</span> : null}
             </p>
+
+            {/* #28 B1：数据导出 / 清空 */}
+            <div className="mb-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+              <p className="mb-2 text-xs font-semibold text-slate-300">数据管理</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void exportAllData()}
+                  className="df-btn rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+                >
+                  导出全部数据 (JSON)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void clearAllData(false)}
+                  className="df-btn rounded-lg border border-orange-700/50 px-3 py-1.5 text-xs text-orange-200 hover:bg-orange-950/40"
+                >
+                  清空历史记录
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void clearAllData(true)}
+                  className="df-btn rounded-lg border border-red-700/50 px-3 py-1.5 text-xs text-red-200 hover:bg-red-950/40"
+                >
+                  清空并重置设置
+                </button>
+              </div>
+            </div>
 
             <button
               type="button"

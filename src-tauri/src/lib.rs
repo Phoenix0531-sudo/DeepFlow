@@ -420,6 +420,8 @@ pub fn run() {
             ipc::reseed_models,
             ipc::get_weekly_report_at,
             ipc::get_l3_reasons,
+            ipc::export_all_data,
+            ipc::clear_all_data,
             ipc::list_running_processes,
             ipc::get_available_cameras,
             ipc::get_vision_status,

@@ -483,6 +483,51 @@ impl LocalLogger {
             vs_last_week_focus_delta_minutes: total_focus_minutes as i32 - (last_week_focus / 60) as i32,
         })
     }
+
+    /// #28 B1：导出全部数据为 JSON 字符串（settings + daily_focus + focus_logs）
+    pub fn export_all_json(&self) -> SqlResult<String> {
+        let settings: serde_json::Value = serde_json::from_str(&serde_json::to_string(&self.load_settings()?).unwrap_or_default()).unwrap_or(serde_json::json!({}));
+        let daily: Vec<serde_json::Value> = {
+            let mut stmt = self.conn.prepare("SELECT day, focus_secs FROM daily_focus ORDER BY day")?;
+            let rows = stmt.query_map([], |row| Ok(serde_json::json!({
+                "day": row.get::<_, String>(0)?,
+                "focus_secs": row.get::<_, i64>(1)?,
+            })))?;
+            rows.filter_map(Result::ok).collect()
+        };
+        let logs: Vec<serde_json::Value> = {
+            let mut stmt = self.conn.prepare("SELECT created_at, session_id, event_type, reason, duration_secs FROM focus_logs ORDER BY created_at")?;
+            let rows = stmt.query_map([], |row| Ok(serde_json::json!({
+                "created_at": row.get::<_, String>(0)?,
+                "session_id": row.get::<_, String>(1)?,
+                "event_type": row.get::<_, String>(2)?,
+                "reason": row.get::<_, String>(3)?,
+                "duration_secs": row.get::<_, i64>(4)?,
+            })))?;
+            rows.filter_map(Result::ok).collect()
+        };
+        let out = serde_json::json!({
+            "schema_version": 2,
+            "exported_at": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            "settings": settings,
+            "daily_focus": daily,
+            "focus_logs": logs,
+        });
+        Ok(serde_json::to_string_pretty(&out).unwrap_or_default())
+    }
+
+    /// #28 B1：清空历史记录（daily_focus + focus_logs），保留 settings。clear_settings=true 时也重置 settings 为默认。
+    pub fn clear_all_data(&self, clear_settings: bool) -> SqlResult<()> {
+        self.conn.execute("DELETE FROM daily_focus", [])?;
+        self.conn.execute("DELETE FROM focus_logs", [])?;
+        if clear_settings {
+            self.conn.execute(
+                "UPDATE settings SET setup_completed=0, default_focus_mins=45, debt_floor_secs=180,                  emergency_hotkey='double_esc', debug_mode=0, test_mode=0, vision_enabled=1,                  prefer_cpu_inference=0, camera_name='', roi_json='', whitelist_json='[]',                  pending_debt_secs=0, auto_open_exports=1, whitelist_action='report'",
+                [],
+            )?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -556,6 +601,45 @@ mod tests {
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
         assert!(version >= 2, "user_version 应 >= 2，实际 = {version}");
+    }
+
+    #[test]
+    fn export_all_json_includes_settings_and_logs() {
+        let (logger, _dir) = open_tmp();
+        logger
+            .log_event("s-export", "SESSION_START", None, 0)
+            .unwrap();
+        logger.add_focus_secs_today(120).unwrap();
+        let json = logger.export_all_json().unwrap();
+        assert!(json.contains("schema_version"));
+        assert!(json.contains("SESSION_START"));
+        assert!(json.contains("focus_secs"));
+        assert!(json.contains("settings"));
+    }
+
+    #[test]
+    fn clear_all_data_keeps_settings_by_default() {
+        let (logger, _dir) = open_tmp();
+        let mut s = logger.load_settings().unwrap();
+        s.default_focus_mins = 77;
+        s.setup_completed = true;
+        logger.save_settings(&s).unwrap();
+        logger
+            .log_event("s-clear", "SESSION_START", None, 0)
+            .unwrap();
+        logger.add_focus_secs_today(60).unwrap();
+
+        logger.clear_all_data(false).unwrap();
+        let cnt: i64 = logger
+            .conn
+            .query_row("SELECT COUNT(*) FROM focus_logs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(cnt, 0);
+        let focus: u32 = logger.today_focus_secs().unwrap();
+        assert_eq!(focus, 0);
+        let got = logger.load_settings().unwrap();
+        assert_eq!(got.default_focus_mins, 77);
+        assert!(got.setup_completed);
     }
 
     #[test]

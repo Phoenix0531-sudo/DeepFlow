@@ -65,6 +65,11 @@ impl AppState {
         *self.today_focus_secs.lock()
     }
 
+    /// #28：清空后重置内存中的今日累计。
+    pub fn reset_today_focus_secs(&self) {
+        *self.today_focus_secs.lock() = 0;
+    }
+
     pub fn load_settings(&self) -> Result<SettingsRecord, String> {
         Ok(self.settings_cache.lock().clone())
     }

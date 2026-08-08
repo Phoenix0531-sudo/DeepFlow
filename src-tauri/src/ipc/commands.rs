@@ -4,7 +4,7 @@ use crate::fsm::{FsmEvent, SystemState};
 use crate::win32::process_guard::list_running_process_names;
 use crate::win32::configure_overlay_window_style;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 type S<'a> = State<'a, Arc<AppState>>;
 
@@ -346,6 +346,46 @@ pub async fn get_l3_reasons(state: S<'_>, limit: Option<u32>) -> Result<Vec<(Str
     state.logger.lock().list_l3_reasons(n).map_err(|e| e.to_string())
 }
 
+/// #28 B1：导出全部数据为 JSON 文件，写入 data/exports，返回文件路径。
+#[tauri::command]
+pub async fn export_all_data(state: S<'_>) -> Result<String, String> {
+    let json = state
+        .logger
+        .lock()
+        .export_all_json()
+        .map_err(|e| e.to_string())?;
+    let exports = state.data_dir.join("exports");
+    std::fs::create_dir_all(&exports).map_err(|e| e.to_string())?;
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let path = exports.join(format!("deepflow-export-{stamp}.json"));
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// #28 B1：清空历史记录。clear_settings=true 时同时重置 settings。
+#[tauri::command]
+pub async fn clear_all_data(
+    app: AppHandle,
+    clear_settings: Option<bool>,
+    state: S<'_>,
+) -> Result<(), String> {
+    let reset = clear_settings.unwrap_or(false);
+    state
+        .logger
+        .lock()
+        .clear_all_data(reset)
+        .map_err(|e| e.to_string())?;
+    if reset {
+        // 从 DB 重新装入 settings 并刷新缓存
+        if let Ok(s) = state.logger.lock().load_settings() {
+            let _ = state.save_settings(&app, s);
+        }
+    }
+    // 今日专注累计清零
+    state.reset_today_focus_secs();
+    let _ = app.emit(crate::ipc::events::EVT_TODAY_FOCUS, 0u32);
+    Ok(())
+}
 
 #[tauri::command]
 pub async fn list_running_processes() -> Result<Vec<String>, String> {
