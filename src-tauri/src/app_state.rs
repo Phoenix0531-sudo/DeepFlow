@@ -363,6 +363,31 @@ impl AppState {
                 compact.push(h);
             }
         }
+
+        // #22：根据设置对违规进程执行最小化/礼貌关闭（不杀进程）
+        let action = self
+            .settings_cache
+            .lock()
+            .whitelist_action
+            .to_lowercase();
+        if action == "minimize" || action == "close_report" {
+            let guard = self.process_guard.lock();
+            for h in &compact {
+                let n = if action == "close_report" {
+                    guard.close_windows_of(h.pid)
+                } else {
+                    guard.minimize_windows_of(h.pid)
+                };
+                if n > 0 && self.settings_cache.lock().debug_mode {
+                    debug!(
+                        target: "deepflow",
+                        "whitelist_action={} {} pid={} windows={}",
+                        action, h.process_name, h.pid, n
+                    );
+                }
+            }
+        }
+
         let _ = app.emit(events::EVT_WHITELIST_HIT, &compact);
         if self.settings_cache.lock().debug_mode {
             for h in &compact {

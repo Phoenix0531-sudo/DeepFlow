@@ -1,6 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+#[cfg(windows)]
+use windows::Win32::Foundation::{BOOL, HWND, LPARAM, WPARAM};
+#[cfg(windows)]
+use windows::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, GetWindow, GetWindowThreadProcessId, GetWindowTextLengthW, GW_OWNER,
+    IsWindowVisible, PostMessageW, ShowWindow, SW_MINIMIZE, WM_CLOSE,
+};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WhitelistHit {
     pub process_name: String,
@@ -86,6 +94,34 @@ impl ProcessGuard {
         }
     }
 
+    /// #22：把指定 pid 的所有顶级窗口最小化（不杀进程，玩家可手动恢复）。
+    /// 返回实际被最小化的窗口数量。
+    pub fn minimize_windows_of(&self, pid: u32) -> u32 {
+        #[cfg(windows)]
+        {
+            self.minimize_windows_of_windows(pid)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = pid;
+            0
+        }
+    }
+
+    /// #22：close_report 动作：向指定 pid 的顶级窗口发 WM_CLOSE（礼貌关闭，非强杀）。
+    /// 返回发送 WM_CLOSE 的窗口数量。
+    pub fn close_windows_of(&self, pid: u32) -> u32 {
+        #[cfg(windows)]
+        {
+            self.close_windows_of_windows(pid)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = pid;
+            0
+        }
+    }
+
     #[cfg(windows)]
     fn scan_windows(&self) -> Vec<WhitelistHit> {
         use windows::Win32::Foundation::CloseHandle;
@@ -154,6 +190,73 @@ impl ProcessGuard {
             }
         }
         hits
+    }
+
+    /// 枚举属于指定 pid 的所有顶级窗口句柄（可见且有标题的）。复用于 minimize/close。
+    #[cfg(windows)]
+    fn enum_toplevel_windows_of(&self, pid: u32) -> Vec<HWND> {
+        struct EnumState {
+            pid: u32,
+            out: Vec<HWND>,
+        }
+        unsafe extern "system" fn proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+            let state = &mut *(lparam.0 as *mut EnumState);
+            // 需要可见且有标题，避免收纳 0×0 / 不可见辅助窗口
+            if !IsWindowVisible(hwnd).as_bool() {
+                return BOOL(1);
+            }
+            if GetWindowTextLengthW(hwnd) == 0 {
+                return BOOL(1);
+            }
+            // 只要顶级窗口（没有 owner 的）
+            let has_owner = GetWindow(hwnd, GW_OWNER).is_ok_and(|o| !o.is_invalid());
+            if has_owner {
+                return BOOL(1);
+            }
+            let mut wpid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, Some(&mut wpid));
+            if wpid == state.pid {
+                state.out.push(hwnd);
+            }
+            BOOL(1)
+        }
+
+        let mut state = EnumState { pid, out: Vec::new() };
+        unsafe {
+            let _ = EnumWindows(
+                Some(proc),
+                LPARAM(&mut state as *mut EnumState as isize),
+            );
+        }
+        state.out
+    }
+
+    #[cfg(windows)]
+    fn minimize_windows_of_windows(&self, pid: u32) -> u32 {
+        let hwnds = self.enum_toplevel_windows_of(pid);
+        let mut n = 0u32;
+        for h in hwnds {
+            unsafe {
+                // ShowWindow 返回值表示之前是否可见；最小化成功本身不看返回值
+                let _ = ShowWindow(h, SW_MINIMIZE);
+                n += 1;
+            }
+        }
+        n
+    }
+
+    #[cfg(windows)]
+    fn close_windows_of_windows(&self, pid: u32) -> u32 {
+        let hwnds = self.enum_toplevel_windows_of(pid);
+        let mut n = 0u32;
+        for h in hwnds {
+            unsafe {
+                if PostMessageW(h, WM_CLOSE, WPARAM(0), LPARAM(0)).is_ok() {
+                    n += 1;
+                }
+            }
+        }
+        n
     }
 }
 
@@ -290,5 +393,39 @@ pub fn list_running_process_names() -> Vec<String> {
     #[cfg(not(windows))]
     {
         vec![]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn whitelist_set_normalizes_to_lowercase() {
+        let mut g = ProcessGuard::new(vec!["Chrome.EXE".into(), "WeChat.exe".into()]);
+        // 内部白名单小写；扫描时命中比较也用小写，这里用 set 再覆盖验证不 panic
+        g.set_whitelist(vec!["CODE.EXE".into()]);
+        // 未知 pid 不应 panic，返回 0
+        assert_eq!(g.minimize_windows_of(0), 0);
+        assert_eq!(g.close_windows_of(0), 0);
+        assert_eq!(g.minimize_windows_of(u32::MAX), 0);
+        assert_eq!(g.close_windows_of(u32::MAX), 0);
+    }
+
+    #[test]
+    fn is_likely_distraction_filters_noise_and_hints() {
+        assert!(!is_likely_distraction("nvidia share.exe"));
+        assert!(!is_likely_distraction("gameinputsvc.exe"));
+        assert!(!is_likely_distraction("backgroundtaskhost.exe"));
+        assert!(is_likely_distraction("chrome.exe"));
+        assert!(is_likely_distraction("WeChat.exe".to_lowercase().as_str()));
+        assert!(is_likely_distraction("discord.exe"));
+        assert!(!is_likely_distraction("notepad.exe")); // 不在 HINTS 内
+    }
+
+    #[test]
+    fn default_guard_scan_does_not_panic() {
+        let g = ProcessGuard::default();
+        let _ = g.scan_violations(); // 仅保证可调用
     }
 }

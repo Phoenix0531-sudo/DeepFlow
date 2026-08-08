@@ -29,6 +29,11 @@ pub struct SettingsRecord {
     pub pending_debt_secs: u32,
     /// #11：周报 PNG 导出后自动打开所在目录。
     pub auto_open_exports: bool,
+    /// #22：白名单违规的处置策略："report" | "minimize" | "close_report"。
+    /// report：仅上方 toast 提示（默认，向后兼容）；
+    /// minimize：命中即最小化其顶级窗口；
+    /// close_report：关闭其顶级窗口后并报告。
+    pub whitelist_action: String,
 }
 
 impl Default for SettingsRecord {
@@ -47,6 +52,7 @@ impl Default for SettingsRecord {
             whitelist_json: "[]".into(),
             pending_debt_secs: 0,
             auto_open_exports: true,
+            whitelist_action: "report".into(),
         }
     }
 }
@@ -126,6 +132,17 @@ impl LocalLogger {
                 [],
             )?;
         }
+        let has_whitelist_action: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name = 'whitelist_action')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_whitelist_action {
+            self.conn.execute(
+                "ALTER TABLE settings ADD COLUMN whitelist_action TEXT NOT NULL DEFAULT 'report'",
+                [],
+            )?;
+        }
         Ok(())
     }
 
@@ -179,7 +196,7 @@ impl LocalLogger {
             r#"
             SELECT setup_completed, default_focus_mins, debt_floor_secs, emergency_hotkey,
                    debug_mode, test_mode, vision_enabled, prefer_cpu_inference, camera_name, roi_json,
-                   whitelist_json, pending_debt_secs, auto_open_exports
+                   whitelist_json, pending_debt_secs, auto_open_exports, whitelist_action
             FROM settings WHERE id = 1
             "#,
             [],
@@ -198,6 +215,7 @@ impl LocalLogger {
                     whitelist_json: row.get(10)?,
                     pending_debt_secs: row.get(11)?,
                     auto_open_exports: row.get::<_, i64>(12)? != 0,
+                    whitelist_action: row.get(13)?,
                 })
             },
         )
@@ -219,7 +237,8 @@ impl LocalLogger {
               roi_json = ?10,
               whitelist_json = ?11,
               pending_debt_secs = ?12,
-              auto_open_exports = ?13
+              auto_open_exports = ?13,
+              whitelist_action = ?14
             WHERE id = 1
             "#,
             params![
@@ -236,6 +255,7 @@ impl LocalLogger {
                 s.whitelist_json,
                 s.pending_debt_secs,
                 s.auto_open_exports as i64,
+                s.whitelist_action,
             ],
         )?;
         Ok(())
@@ -520,6 +540,8 @@ mod tests {
         assert_eq!(s.debt_floor_secs, 180);
         assert_eq!(s.emergency_hotkey, "double_esc");
         assert_eq!(s.pending_debt_secs, 0);
+        assert!(s.auto_open_exports);
+        assert_eq!(s.whitelist_action, "report");
         assert!(!s.vision_enabled || s.vision_enabled); // 仅验证可读
     }
 
@@ -539,6 +561,8 @@ mod tests {
         s.roi_json = "{\"x\":1}".into();
         s.whitelist_json = "[\"a.exe\",\"b.exe\"]".into();
         s.pending_debt_secs = 42;
+        s.auto_open_exports = false;
+        s.whitelist_action = "minimize".into();
         logger.save_settings(&s).unwrap();
 
         let got = logger.load_settings().unwrap();
@@ -554,6 +578,8 @@ mod tests {
         assert_eq!(got.roi_json, "{\"x\":1}");
         assert_eq!(got.whitelist_json, "[\"a.exe\",\"b.exe\"]");
         assert_eq!(got.pending_debt_secs, 42);
+        assert!(!got.auto_open_exports);
+        assert_eq!(got.whitelist_action, "minimize");
     }
 
     #[test]

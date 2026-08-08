@@ -46,6 +46,8 @@ export interface SettingsRecord {
   pending_debt_secs: number;
   /** #11：周报 PNG 导出后自动打开所在目录 */
   auto_open_exports: boolean;
+  /** #22：白名单违规处置：report | minimize | close_report */
+  whitelist_action: string;
 }
 
 export interface WeeklyReport {

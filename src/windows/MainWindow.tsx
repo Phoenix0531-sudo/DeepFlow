@@ -93,6 +93,7 @@ const DEFAULT_SETTINGS: SettingsRecord = {
   whitelist_json: "[]",
   pending_debt_secs: 0,
   auto_open_exports: true,
+  whitelist_action: "report",
 };
 
 export const MainWindow: React.FC = () => {
@@ -427,7 +428,13 @@ export const MainWindow: React.FC = () => {
 
           {hits.length > 0 && (
             <div className="max-w-lg rounded-xl border border-orange-700/50 bg-orange-950/40 p-3 text-sm text-orange-100">
-              <p className="font-semibold">白名单外进程（请在 15s 内关闭）</p>
+              <p className="font-semibold">
+                {settings.whitelist_action === "minimize"
+                  ? "白名单外进程（已自动最小化）"
+                  : settings.whitelist_action === "close_report"
+                    ? "白名单外进程（已请求关闭窗口）"
+                    : "白名单外进程（请在 15s 内关闭）"}
+              </p>
               <ul className="mt-1 list-inside list-disc">
                 {hits.slice(0, 5).map((h) => (
                   <li key={`${h.process_name}-${h.pid}`}>
@@ -697,6 +704,24 @@ export const MainWindow: React.FC = () => {
                 </ul>
               )}
             </div>
+
+            <label className="mb-3 block text-sm text-slate-300">
+              白名单违规处置
+              <select
+                className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm"
+                value={settings.whitelist_action || "report"}
+                onChange={(e) =>
+                  setSettings({ ...settings, whitelist_action: e.target.value })
+                }
+              >
+                <option value="report">仅提示（默认）</option>
+                <option value="minimize">强制最小化窗口</option>
+                <option value="close_report">请求关闭窗口并提示</option>
+              </select>
+              <span className="mt-1 block text-xs text-slate-500">
+                不杀进程；最小化/关闭仅作用于该进程的顶级可见窗口。
+              </span>
+            </label>
 
             <p className="mb-1 text-sm font-semibold text-slate-300">
               白名单进程
