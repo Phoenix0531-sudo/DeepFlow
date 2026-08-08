@@ -317,6 +317,21 @@ export const OverlayLockWindow: React.FC = () => {
         </button>
       )}
 
+      {level === 3 && (
+        <div className="z-10 mt-4 flex flex-wrap justify-center gap-2 px-4">
+          {["查资料/学习", "休息疲劳", "消息回复", "临时处理", "其他"].map((t) => (
+            <button
+              key={t}
+              type="button"
+              className="df-btn rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-red-200 hover:bg-red-500/20"
+              onClick={() => setReason(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="z-10 mt-10 w-full max-w-xl px-4">
         <VoiceInputBox
           value={reason}

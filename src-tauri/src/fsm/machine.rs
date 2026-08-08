@@ -293,7 +293,9 @@ impl SystemFSM {
                                 reason: None,
                                 duration_secs: 0,
                             },
+                            FsmSideEffect::ShowOverlay,
                             FsmSideEffect::StopVision,
+                            FsmSideEffect::StopWhitelistMonitor,
                         ],
                     )
                 } else {
@@ -725,20 +727,41 @@ impl SystemFSM {
                 ],
             ),
 
-            (_, FsmEvent::StopSession) => (
-                Some(SystemState::Idle),
-                vec![
-                    FsmSideEffect::Log {
-                        event_type: "SESSION_END".into(),
-                        reason: Some("stop".into()),
-                        duration_secs: 0,
-                    },
-                    FsmSideEffect::HideOverlay,
-                    FsmSideEffect::HideFloatingClock,
-                    FsmSideEffect::StopWhitelistMonitor,
-                    FsmSideEffect::StopVision,
-                ],
-            ),
+            (_, FsmEvent::StopSession) => {
+                // #36 F1：手动停止进入三选一仪式（继续/休息/结束），不直接结束
+                if let Some(sid) = state.session_id() {
+                    (
+                        Some(SystemState::AwaitSessionEndChoice {
+                            session_id: sid.to_string(),
+                        }),
+                        vec![
+                            FsmSideEffect::Log {
+                                event_type: "SESSION_STOP_CHOICE".into(),
+                                reason: Some("manual_stop".into()),
+                                duration_secs: 0,
+                            },
+                            // 确保遮罩弹出，展示三选一（主窗也可能自行展示）
+                            FsmSideEffect::ShowOverlay,
+                            FsmSideEffect::StopWhitelistMonitor,
+                        ],
+                    )
+                } else {
+                    (
+                        Some(SystemState::Idle),
+                        vec![
+                            FsmSideEffect::Log {
+                                event_type: "SESSION_END".into(),
+                                reason: Some("stop".into()),
+                                duration_secs: 0,
+                            },
+                            FsmSideEffect::HideOverlay,
+                            FsmSideEffect::HideFloatingClock,
+                            FsmSideEffect::StopWhitelistMonitor,
+                            FsmSideEffect::StopVision,
+                        ],
+                    )
+                }
+            },
 
             _ => (None, vec![]),
         }

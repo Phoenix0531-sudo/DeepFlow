@@ -632,4 +632,30 @@ mod tests {
         assert!(matches!(fsm.get_state(), SystemState::Idle), "应回到 Idle");
         assert!(log_kinds(&eff).iter().any(|s| *s == "EMERGENCY_EXIT"));
     }
+
+    #[test]
+    fn fsm_smoke_manual_stop_enters_end_choice() {
+        // #36：手动 StopSession 进入三选一，不直接 Idle
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        assert!(matches!(fsm.get_state(), SystemState::FocusActive { .. }));
+
+        let (ok, eff) = fsm.dispatch(FsmEvent::StopSession);
+        assert!(ok, "StopSession 应迁移");
+        assert!(
+            matches!(fsm.get_state(), SystemState::AwaitSessionEndChoice { .. }),
+            "手动停止应进入 AwaitSessionEndChoice"
+        );
+        assert!(
+            eff.iter().any(|e| matches!(e, FsmSideEffect::ShowOverlay)),
+            "应弹出遮罩展示三选一"
+        );
+        assert!(has_log(&eff, "SESSION_STOP_CHOICE", "manual_stop"));
+
+        // 选择结束 → Idle
+        let (ok, _) = fsm.dispatch(FsmEvent::ChooseEnd);
+        assert!(ok);
+        assert!(matches!(fsm.get_state(), SystemState::Idle));
+    }
 }

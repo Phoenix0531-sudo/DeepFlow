@@ -475,6 +475,38 @@ export const MainWindow: React.FC = () => {
               </ul>
             </div>
           )}
+
+          {/* #36：手动停止 / 到点后的三选一（主窗兜底；遮罩也会展示） */}
+          {state?.kind === "await_session_end_choice" && (
+            <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-slate-900/95 p-6 shadow-2xl">
+              <h2 className="mb-1 text-xl font-bold text-white">本轮专注结束</h2>
+              <p className="mb-4 text-sm text-slate-400">接下来？</p>
+              <div className="flex flex-col gap-2">
+                {(
+                  [
+                    ["continue", "继续下一轮"],
+                    ["rest", "先休息"],
+                    ["end", "结束"],
+                  ] as const
+                ).map(([c, label]) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className="df-btn rounded-xl bg-amber-500 py-2.5 font-bold text-slate-950 hover:bg-amber-400"
+                    onClick={async () => {
+                      try {
+                        await invoke("choose_session_end", { choice: c });
+                      } catch (e) {
+                        showError(e);
+                      }
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
 
         {/* Right: vision status sidebar */}

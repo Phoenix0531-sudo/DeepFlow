@@ -143,6 +143,8 @@ impl LocalLogger {
                 [],
             )?;
         }
+        // #26：用 PRAGMA user_version 记录 schema 版本，便于后续增量迁移
+        self.conn.execute_batch("PRAGMA user_version = 2;")?;
         Ok(())
     }
 
@@ -543,6 +545,17 @@ mod tests {
         assert!(s.auto_open_exports);
         assert_eq!(s.whitelist_action, "report");
         assert!(!s.vision_enabled || s.vision_enabled); // 仅验证可读
+    }
+
+    #[test]
+    fn migrate_sets_schema_user_version() {
+        // #26：schema 版本通过 PRAGMA user_version 持久化
+        let (logger, _dir) = open_tmp();
+        let version: i64 = logger
+            .conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert!(version >= 2, "user_version 应 >= 2，实际 = {version}");
     }
 
     #[test]

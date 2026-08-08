@@ -93,8 +93,30 @@ impl CameraController {
         let handle = std::thread::Builder::new()
             .name("deepflow-camera".into())
             .spawn(move || {
-                if let Err(e) = camera_loop(index, fps, running.clone(), &mut on_frame) {
-                    error!("camera loop ended: {e}");
+                // #31：断流自动重试（指数退避，上限 30s），running=false 时退出
+                let mut attempt: u32 = 0;
+                while running.load(Ordering::SeqCst) {
+                    match camera_loop(index.clone(), fps, running.clone(), &mut on_frame) {
+                        Ok(()) => {
+                            // 正常 stop() 退出
+                            break;
+                        }
+                        Err(e) => {
+                            attempt = attempt.saturating_add(1);
+                            let backoff_ms = (500u64 * 2u64.saturating_pow(attempt.min(6)))
+                                .min(30_000);
+                            error!(
+                                "camera loop ended (attempt {attempt}): {e}; retry in {backoff_ms}ms"
+                            );
+                            // 分段 sleep，便于 stop() 及时打断
+                            let mut waited = 0u64;
+                            while waited < backoff_ms && running.load(Ordering::SeqCst) {
+                                let step = 200u64.min(backoff_ms - waited);
+                                std::thread::sleep(std::time::Duration::from_millis(step));
+                                waited += step;
+                            }
+                        }
+                    }
                 }
                 running.store(false, Ordering::SeqCst);
             })
@@ -148,20 +170,35 @@ where
 
     let frame_interval = std::time::Duration::from_millis((1000 / fps.max(1)) as u64);
     let mut decode_fail_logged = 0u32;
+    // #31：连续抓帧失败超过阈值则退出 loop，由外层自动重连
+    let mut consecutive_grab_fail = 0u32;
+    const GRAB_FAIL_LIMIT: u32 = 30; // ~1.5s @ 50ms sleep，或更长取决于 fps
     while running.load(Ordering::SeqCst) {
         let t0 = std::time::Instant::now();
         match cam.frame() {
-            Ok(buf) => match decode_buffer_rgb(&buf) {
-                Ok((w, h, rgb)) => on_frame(w, h, rgb),
-                Err(e) => {
-                    if decode_fail_logged < 5 {
-                        warn!("decode frame: {e}");
-                        decode_fail_logged += 1;
+            Ok(buf) => {
+                consecutive_grab_fail = 0;
+                match decode_buffer_rgb(&buf) {
+                    Ok((w, h, rgb)) => on_frame(w, h, rgb),
+                    Err(e) => {
+                        if decode_fail_logged < 5 {
+                            warn!("decode frame: {e}");
+                            decode_fail_logged += 1;
+                        }
                     }
                 }
-            },
+            }
             Err(e) => {
-                warn!("grab frame: {e}");
+                consecutive_grab_fail = consecutive_grab_fail.saturating_add(1);
+                if consecutive_grab_fail <= 5 || consecutive_grab_fail % 10 == 0 {
+                    warn!("grab frame ({consecutive_grab_fail}): {e}");
+                }
+                if consecutive_grab_fail >= GRAB_FAIL_LIMIT {
+                    let _ = cam.stop_stream();
+                    return Err(format!(
+                        "camera stream stalled after {consecutive_grab_fail} grab failures: {e}"
+                    ));
+                }
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
         }
