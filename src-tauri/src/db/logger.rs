@@ -34,6 +34,8 @@ pub struct SettingsRecord {
     /// minimize：命中即最小化其顶级窗口；
     /// close_report：关闭其顶级窗口后并报告。
     pub whitelist_action: String,
+    /// #30：静音提示音（前端 WebAudio）。
+    pub sound_muted: bool,
 }
 
 impl Default for SettingsRecord {
@@ -53,6 +55,7 @@ impl Default for SettingsRecord {
             pending_debt_secs: 0,
             auto_open_exports: true,
             whitelist_action: "report".into(),
+            sound_muted: false,
         }
     }
 }
@@ -143,8 +146,19 @@ impl LocalLogger {
                 [],
             )?;
         }
+        let has_sound_muted: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name = 'sound_muted')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_sound_muted {
+            self.conn.execute(
+                "ALTER TABLE settings ADD COLUMN sound_muted INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
         // #26：用 PRAGMA user_version 记录 schema 版本，便于后续增量迁移
-        self.conn.execute_batch("PRAGMA user_version = 2;")?;
+        self.conn.execute_batch("PRAGMA user_version = 3;")?;
         Ok(())
     }
 
@@ -198,7 +212,7 @@ impl LocalLogger {
             r#"
             SELECT setup_completed, default_focus_mins, debt_floor_secs, emergency_hotkey,
                    debug_mode, test_mode, vision_enabled, prefer_cpu_inference, camera_name, roi_json,
-                   whitelist_json, pending_debt_secs, auto_open_exports, whitelist_action
+                   whitelist_json, pending_debt_secs, auto_open_exports, whitelist_action, sound_muted
             FROM settings WHERE id = 1
             "#,
             [],
@@ -218,6 +232,7 @@ impl LocalLogger {
                     pending_debt_secs: row.get(11)?,
                     auto_open_exports: row.get::<_, i64>(12)? != 0,
                     whitelist_action: row.get(13)?,
+                    sound_muted: row.get::<_, i64>(14)? != 0,
                 })
             },
         )
@@ -240,7 +255,8 @@ impl LocalLogger {
               whitelist_json = ?11,
               pending_debt_secs = ?12,
               auto_open_exports = ?13,
-              whitelist_action = ?14
+              whitelist_action = ?14,
+              sound_muted = ?15
             WHERE id = 1
             "#,
             params![
@@ -258,6 +274,7 @@ impl LocalLogger {
                 s.pending_debt_secs,
                 s.auto_open_exports as i64,
                 s.whitelist_action,
+                s.sound_muted as i64,
             ],
         )?;
         Ok(())
@@ -522,7 +539,7 @@ impl LocalLogger {
         self.conn.execute("DELETE FROM focus_logs", [])?;
         if clear_settings {
             self.conn.execute(
-                "UPDATE settings SET setup_completed=0, default_focus_mins=45, debt_floor_secs=180,                  emergency_hotkey='double_esc', debug_mode=0, test_mode=0, vision_enabled=1,                  prefer_cpu_inference=0, camera_name='', roi_json='', whitelist_json='[]',                  pending_debt_secs=0, auto_open_exports=1, whitelist_action='report'",
+                "UPDATE settings SET setup_completed=0, default_focus_mins=45, debt_floor_secs=180,                  emergency_hotkey='double_esc', debug_mode=0, test_mode=0, vision_enabled=1,                  prefer_cpu_inference=0, camera_name='', roi_json='', whitelist_json='[]',                  pending_debt_secs=0, auto_open_exports=1, whitelist_action='report', sound_muted=0",
                 [],
             )?;
         }
@@ -600,7 +617,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert!(version >= 2, "user_version 应 >= 2，实际 = {version}");
+        assert!(version >= 3, "user_version 应 >= 3，实际 = {version}");
     }
 
     #[test]

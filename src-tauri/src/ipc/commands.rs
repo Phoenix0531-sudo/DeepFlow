@@ -387,6 +387,48 @@ pub async fn clear_all_data(
     Ok(())
 }
 
+/// #34 B2：备份当前设置为 JSON 文件，返回路径。
+#[tauri::command]
+pub async fn backup_settings(state: S<'_>) -> Result<String, String> {
+    let s = state.load_settings()?;
+    let exports = state.data_dir.join("exports");
+    std::fs::create_dir_all(&exports).map_err(|e| e.to_string())?;
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let path = exports.join(format!("deepflow-settings-{stamp}.json"));
+    let body = serde_json::json!({
+        "kind": "deepflow_settings_backup",
+        "schema_version": 3,
+        "exported_at": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        "settings": s,
+    });
+    std::fs::write(&path, serde_json::to_string_pretty(&body).unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// #34 B2：从 JSON 备份恢复设置（仅 settings 字段；忽略历史日志）。
+#[tauri::command]
+pub async fn restore_settings(
+    app: AppHandle,
+    path: String,
+    state: S<'_>,
+) -> Result<SettingsRecord, String> {
+    let raw = std::fs::read_to_string(&path).map_err(|e| format!("读取失败: {e}"))?;
+    let v: serde_json::Value =
+        serde_json::from_str(&raw).map_err(|e| format!("JSON 无效: {e}"))?;
+    let settings_val = v
+        .get("settings")
+        .cloned()
+        .or_else(|| if v.get("default_focus_mins").is_some() { Some(v.clone()) } else { None })
+        .ok_or_else(|| "备份文件中找不到 settings".to_string())?;
+    let mut s: SettingsRecord =
+        serde_json::from_value(settings_val).map_err(|e| format!("settings 解析失败: {e}"))?;
+    // 恢复后强制 setup_completed，避免被踢回首次配置
+    s.setup_completed = true;
+    state.save_settings(&app, s.clone())?;
+    Ok(s)
+}
+
 #[tauri::command]
 pub async fn list_running_processes() -> Result<Vec<String>, String> {
     Ok(list_running_process_names())

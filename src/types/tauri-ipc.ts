@@ -48,6 +48,8 @@ export interface SettingsRecord {
   auto_open_exports: boolean;
   /** #22：白名单违规处置：report | minimize | close_report */
   whitelist_action: string;
+  /** #30：静音提示音 */
+  sound_muted: boolean;
 }
 
 export interface WeeklyReport {

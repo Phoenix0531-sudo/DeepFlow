@@ -41,7 +41,8 @@ function tone(
   osc.stop(start + dur + 0.02);
 }
 
-export function playSound(kind: SoundKind) {
+export function playSound(kind: SoundKind, muted: boolean = false) {
+  if (muted) return;
   const ac = audio();
   if (!ac) return;
   const t0 = ac.currentTime + 0.01;

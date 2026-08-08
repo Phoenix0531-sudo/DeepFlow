@@ -94,6 +94,7 @@ const DEFAULT_SETTINGS: SettingsRecord = {
   pending_debt_secs: 0,
   auto_open_exports: true,
   whitelist_action: "report",
+  sound_muted: false,
 };
 
 export const MainWindow: React.FC = () => {
@@ -151,7 +152,7 @@ export const MainWindow: React.FC = () => {
   useTauriEvent<WhitelistHit[]>(EVT.whitelist, setHits, []);
   useTauriEvent(EVT.openSettings, () => setSettingsOpen(true), []);
   useTauriEvent(EVT.openReport, () => void openReport(), []);
-  useTauriEvent<string>(EVT.playSound, (kind) => playSound(kind), []);
+  useTauriEvent<string>(EVT.playSound, (kind) => playSound(kind, settings.sound_muted), [settings.sound_muted]);
 
   const openReport = async (week: number = 0) => {
     try {
@@ -265,6 +266,31 @@ export const MainWindow: React.FC = () => {
       showError(e);
     } finally {
       setReseeding(false);
+    }
+  };
+
+  // #34 B2：备份当前设置
+  const backupSettings = async () => {
+    try {
+      const path = await invoke<string>("backup_settings");
+      showSuccess(`设置了备份：${path}`);
+      try { await invoke("reveal_path", { path }); } catch { /* ignore */ }
+    } catch (e) {
+      showError(e);
+    }
+  };
+
+  // #34 B2：从备份 JSON 恢复设置
+  const restoreSettings = async () => {
+    const path = window.prompt("请输入备份 JSON 文件完整路径：");
+    if (!path || !path.trim()) return;
+    try {
+      const s = await invoke<SettingsRecord>("restore_settings", { path: path.trim() });
+      setSettings(s);
+      showSuccess("设置已恢复");
+      await refresh();
+    } catch (e) {
+      showError(e);
     }
   };
 
@@ -873,9 +899,17 @@ export const MainWindow: React.FC = () => {
               {pathMode ? <span className="ml-1 text-slate-600">（{pathMode}）</span> : null}
             </p>
 
-            {/* #28 B1：数据导出 / 清空 */}
+            {/* #28 B1：数据导出 / 清空 / #30 静音 / #34 备份恢复 */}
             <div className="mb-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
               <p className="mb-2 text-xs font-semibold text-slate-300">数据管理</p>
+              <label className="mb-3 flex items-center gap-2 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={settings.sound_muted}
+                  onChange={() => setSettings({ ...settings, sound_muted: !settings.sound_muted })}
+                />
+                静音全部提示音
+              </label>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -897,6 +931,22 @@ export const MainWindow: React.FC = () => {
                   className="df-btn rounded-lg border border-red-700/50 px-3 py-1.5 text-xs text-red-200 hover:bg-red-950/40"
                 >
                   清空并重置设置
+                </button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-700/40 pt-2">
+                <button
+                  type="button"
+                  onClick={() => void backupSettings()}
+                  className="df-btn rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+                >
+                  备份设置 (JSON)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void restoreSettings()}
+                  className="df-btn rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+                >
+                  从备份恢复
                 </button>
               </div>
             </div>

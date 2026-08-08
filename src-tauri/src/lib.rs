@@ -422,6 +422,8 @@ pub fn run() {
             ipc::get_l3_reasons,
             ipc::export_all_data,
             ipc::clear_all_data,
+            ipc::backup_settings,
+            ipc::restore_settings,
             ipc::list_running_processes,
             ipc::get_available_cameras,
             ipc::get_vision_status,
