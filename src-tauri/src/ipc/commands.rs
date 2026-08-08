@@ -538,6 +538,17 @@ pub async fn download_and_install_update(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// #48：关于/版本信息（读 tauri.conf.json 的 productName 与 version）
+#[tauri::command]
+pub async fn get_app_version(app: AppHandle) -> Result<serde_json::Value, String> {
+    let cfg = app.config();
+    Ok(serde_json::json!({
+        "name": cfg.product_name.clone().unwrap_or_else(|| "DeepFlow".into()),
+        "version": cfg.version.clone(),
+        "identifier": cfg.identifier.clone(),
+    }))
+}
+
 #[tauri::command]
 pub async fn list_running_processes() -> Result<Vec<String>, String> {
     Ok(list_running_process_names())

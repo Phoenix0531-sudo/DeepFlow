@@ -42,6 +42,27 @@ Windows 本地刷题专注壳（Tauri 2 + React 19）：主屏遮罩、进程白
 | 开发 | exe 路径在 `target/debug|release` | `dev` | 仓库 data/ 被使用 |
 | 安装 | `cargo tauri build` 生成的安装包安装 | `install` | `%LOCALAPPDATA%\DeepFlow\data` 被创建且写入 |
 
+### #48 真装包路径验证清单（手工）
+
+> 在正式安装包上逐项打勾；开发态 `cargo run` 不能代替此表。
+
+1. **构建**
+   - [ ] `npm run tauri build` 成功，产物含 `DeepFlow_x.y.z_x64-setup.exe`
+2. **干净机 / 干净用户安装**
+   - [ ] 安装后启动，设置页「数据目录」=`%LOCALAPPDATA%\DeepFlow\data`
+   - [ ] `get_path_info.mode` = `install`
+3. **写入验证**
+   - [ ] 完成一次专注会话后，`%LOCALAPPDATA%\DeepFlow\data\deepflow.db` 存在且增长
+   - [ ] 导出周报 PNG 落在 `%LOCALAPPDATA%\DeepFlow\data\exports\`
+4. **便携对照**
+   - [ ] 把安装产物旁放 `portable.flag` 再启动，mode 切到 `portable`，数据写到 exe 旁 `data/`
+5. **环境变量覆盖**
+   - [ ] 设置 `DEEPFLOW_DATA_DIR=D:\\tmp\\df` 启动，mode=`env`，写入该目录
+6. **系统集成（#23/#29/#33）**
+   - [ ] 开启「登录自启」后，任务管理器「启动」可见 DeepFlow
+   - [ ] 「测试通知」弹出系统通知中心 toast
+   - [ ] 「检查更新」在未配置 endpoint/pubkey 时提示「未配置」（非「已是最新」）
+
 ```bat
 python scripts/download_yolo_onnx.py
 ```
@@ -71,7 +92,7 @@ npm.cmd run build
 - **P0**（done）：多窗、FSM、托盘、遮罩、白名单扫描、债务、设置、调试日志
 - **P1**（done）：摄像头 + ONNX 检测 + L1–L3 + Setup 预览/ROI、滑窗墙钟 hold
 - **P2**（done）：周报 PNG 导出（`export_weekly_report_png`，时间戳文件名）、紧急热键可配（设置页四选一：双击 ESC / F9 / Ctrl+Shift+E / Ctrl+Alt+Q，保存后热更新）、内置语音识别（Web Speech API，mic 按钮）、数据目录四模式策略 + 便携标记/seed 模型复制
-- **P3**（进行中）：进程白名单强制最小化/关闭（`whitelist_action`）、摄像头下拉统一、聚焦时长上下限、Setup 可配债务下限、白名单进程搜索、债务结算、模型自管理 UI（`list_models`/`reseed_models`）、周报历史周查看、L3 原因回看、托盘菜单扩展、CSP 收紧、浮钟置顶可调
+- **P3**（进行中）：进程白名单强制最小化/关闭（`whitelist_action`）、摄像头下拉统一、聚焦时长上下限、Setup 可配债务下限、白名单进程搜索、债务结算、模型自管理 UI（`list_models`/`reseed_models`）、周报历史周查看、L3 原因回看、托盘菜单扩展、CSP 收紧、浮钟置顶可调、开机自启/系统通知/自动更新骨架、关于页版本信息、通知全覆盖（到点/会话结束/白名单/L3）
 
 ## 紧急退出热键
 

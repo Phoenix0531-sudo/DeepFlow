@@ -276,6 +276,14 @@ impl AppState {
                     if event_type == "PAUSE_END" || event_type == "SKIP_DEBT" {
                         // 持久化 pending debt = 0 after applied; if emergency later set pending
                     }
+                    // #48：会话正式结束时发系统通知
+                    if event_type == "SESSION_END" {
+                        self.maybe_notify(
+                            app,
+                            "DeepFlow · 会话结束",
+                            "本轮专注会话已结束，记录已写入本地数据库",
+                        );
+                    }
                     if self.settings_cache.lock().debug_mode {
                         let _ = app.emit(
                             events::EVT_DEBUG_LOG,
@@ -323,6 +331,8 @@ impl AppState {
                 FsmSideEffect::PlayChime => {
                     let _ = app.emit(events::EVT_PLAY_SOUND, "chime");
                     let _ = app.emit(events::EVT_DEBUG_LOG, "play_chime");
+                    // #48：到点/结课提示（若开启系统通知）
+                    self.maybe_notify(app, "DeepFlow · 专注到点", "本轮专注已结束，请选择后续动作");
                 }
                 FsmSideEffect::SevereEscalate => {
                     let _ = app.emit(events::EVT_PLAY_SOUND, "severe");
@@ -415,6 +425,14 @@ impl AppState {
         }
 
         let _ = app.emit(events::EVT_WHITELIST_HIT, &compact);
+        // #48：白名单命中通知（合并进程名，避免刷屏）
+        let names: Vec<String> = compact.iter().map(|h| h.process_name.clone()).collect();
+        let body = if names.len() <= 3 {
+            format!("检测到：{}", names.join(", "))
+        } else {
+            format!("检测到 {} 个违规进程：{} 等", names.len(), names[..3].join(", "))
+        };
+        self.maybe_notify(app, "DeepFlow · 白名单拦截", &body);
         if self.settings_cache.lock().debug_mode {
             for h in &compact {
                 debug!(target: "deepflow", "whitelist hit {} pid={}", h.process_name, h.pid);

@@ -127,6 +127,8 @@ export const MainWindow: React.FC = () => {
   // #16：L3 原因记录查看
   const [l3Reasons, setL3Reasons] = useState<L3ReasonEntry[]>([]);
   const [l3Loading, setL3Loading] = useState(false);
+  // #48：关于/版本
+  const [about, setAbout] = useState<{ name: string; version: string; identifier: string } | null>(null);
 
   const refresh = async () => {
     try {
@@ -233,6 +235,14 @@ export const MainWindow: React.FC = () => {
       setCameras(await invoke<string[]>("get_available_cameras"));
     } catch {
       /* 忽略，下拉为空时回退到文本输入 */
+    }
+    // #48：加载关于/版本
+    try {
+      setAbout(
+        await invoke<{ name: string; version: string; identifier: string }>("get_app_version"),
+      );
+    } catch {
+      /* 忽略 */
     }
     setSettingsOpen(true);
   };
@@ -1056,6 +1066,25 @@ export const MainWindow: React.FC = () => {
                   从备份恢复
                 </button>
               </div>
+            </div>
+
+            {/* #48：关于/版本 */}
+            <div className="mb-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+              <p className="mb-2 text-xs font-semibold text-slate-300">关于</p>
+              <p className="text-xs text-slate-300">
+                {about ? (
+                  <>
+                    {about.name} <span className="text-slate-500">v{about.version}</span>
+                    <br />
+                    <span className="text-[11px] text-slate-500">{about.identifier}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-500">（未加载）</span>
+                )}
+              </p>
+              <p className="mt-2 text-[11px] text-slate-500">
+                专注辅助 · 多分心干预 · 本地优先，数据不上云。
+              </p>
             </div>
 
             <button

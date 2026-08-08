@@ -431,6 +431,7 @@ pub fn run() {
             ipc::send_notification,
             ipc::check_for_updates,
             ipc::download_and_install_update,
+            ipc::get_app_version,
             ipc::backup_settings,
             ipc::restore_settings,
             ipc::list_running_processes,
