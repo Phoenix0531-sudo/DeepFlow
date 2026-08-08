@@ -246,6 +246,9 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state.clone())
         .setup({
             let state = state.clone();
@@ -422,6 +425,12 @@ pub fn run() {
             ipc::get_l3_reasons,
             ipc::export_all_data,
             ipc::clear_all_data,
+            ipc::get_autostart_enabled,
+            ipc::set_autostart_enabled,
+            ipc::request_notification_permission,
+            ipc::send_notification,
+            ipc::check_for_updates,
+            ipc::download_and_install_update,
             ipc::backup_settings,
             ipc::restore_settings,
             ipc::list_running_processes,

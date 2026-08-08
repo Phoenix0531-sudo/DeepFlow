@@ -29,6 +29,8 @@ const defaultSettings = (): SettingsRecord => ({
   auto_open_exports: true,
   whitelist_action: "report",
   sound_muted: false,
+  auto_start: false,
+  notifications_enabled: true,
 });
 
 function parseRoi(json: string): RoiRect | null {

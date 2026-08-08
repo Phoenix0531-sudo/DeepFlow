@@ -36,6 +36,10 @@ pub struct SettingsRecord {
     pub whitelist_action: String,
     /// #30：静音提示音（前端 WebAudio）。
     pub sound_muted: bool,
+    /// #23：登录时自动启动 DeepFlow。
+    pub auto_start: bool,
+    /// #29：允许系统通知（会话结束/到点/L3 等）。
+    pub notifications_enabled: bool,
 }
 
 impl Default for SettingsRecord {
@@ -56,6 +60,8 @@ impl Default for SettingsRecord {
             auto_open_exports: true,
             whitelist_action: "report".into(),
             sound_muted: false,
+            auto_start: false,
+            notifications_enabled: true,
         }
     }
 }
@@ -157,8 +163,30 @@ impl LocalLogger {
                 [],
             )?;
         }
+        let has_auto_start: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name = 'auto_start')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_auto_start {
+            self.conn.execute(
+                "ALTER TABLE settings ADD COLUMN auto_start INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        let has_notifications: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name = 'notifications_enabled')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_notifications {
+            self.conn.execute(
+                "ALTER TABLE settings ADD COLUMN notifications_enabled INTEGER NOT NULL DEFAULT 1",
+                [],
+            )?;
+        }
         // #26：用 PRAGMA user_version 记录 schema 版本，便于后续增量迁移
-        self.conn.execute_batch("PRAGMA user_version = 3;")?;
+        self.conn.execute_batch("PRAGMA user_version = 4;")?;
         Ok(())
     }
 
@@ -212,7 +240,8 @@ impl LocalLogger {
             r#"
             SELECT setup_completed, default_focus_mins, debt_floor_secs, emergency_hotkey,
                    debug_mode, test_mode, vision_enabled, prefer_cpu_inference, camera_name, roi_json,
-                   whitelist_json, pending_debt_secs, auto_open_exports, whitelist_action, sound_muted
+                   whitelist_json, pending_debt_secs, auto_open_exports, whitelist_action, sound_muted,
+                   auto_start, notifications_enabled
             FROM settings WHERE id = 1
             "#,
             [],
@@ -233,6 +262,8 @@ impl LocalLogger {
                     auto_open_exports: row.get::<_, i64>(12)? != 0,
                     whitelist_action: row.get(13)?,
                     sound_muted: row.get::<_, i64>(14)? != 0,
+                    auto_start: row.get::<_, i64>(15)? != 0,
+                    notifications_enabled: row.get::<_, i64>(16)? != 0,
                 })
             },
         )
@@ -256,7 +287,9 @@ impl LocalLogger {
               pending_debt_secs = ?12,
               auto_open_exports = ?13,
               whitelist_action = ?14,
-              sound_muted = ?15
+              sound_muted = ?15,
+              auto_start = ?16,
+              notifications_enabled = ?17
             WHERE id = 1
             "#,
             params![
@@ -275,6 +308,8 @@ impl LocalLogger {
                 s.auto_open_exports as i64,
                 s.whitelist_action,
                 s.sound_muted as i64,
+                s.auto_start as i64,
+                s.notifications_enabled as i64,
             ],
         )?;
         Ok(())
@@ -539,7 +574,7 @@ impl LocalLogger {
         self.conn.execute("DELETE FROM focus_logs", [])?;
         if clear_settings {
             self.conn.execute(
-                "UPDATE settings SET setup_completed=0, default_focus_mins=45, debt_floor_secs=180,                  emergency_hotkey='double_esc', debug_mode=0, test_mode=0, vision_enabled=1,                  prefer_cpu_inference=0, camera_name='', roi_json='', whitelist_json='[]',                  pending_debt_secs=0, auto_open_exports=1, whitelist_action='report', sound_muted=0",
+                "UPDATE settings SET setup_completed=0, default_focus_mins=45, debt_floor_secs=180,                  emergency_hotkey='double_esc', debug_mode=0, test_mode=0, vision_enabled=1,                  prefer_cpu_inference=0, camera_name='', roi_json='', whitelist_json='[]',                  pending_debt_secs=0, auto_open_exports=1, whitelist_action='report', sound_muted=0, auto_start=0, notifications_enabled=1",
                 [],
             )?;
         }
@@ -617,7 +652,7 @@ mod tests {
             .conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert!(version >= 3, "user_version 应 >= 3，实际 = {version}");
+        assert!(version >= 4, "user_version 应 >= 4，实际 = {version}");
     }
 
     #[test]

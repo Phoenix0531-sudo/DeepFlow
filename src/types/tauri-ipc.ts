@@ -50,6 +50,10 @@ export interface SettingsRecord {
   whitelist_action: string;
   /** #30：静音提示音 */
   sound_muted: boolean;
+  /** #23：登录时自动启动 */
+  auto_start: boolean;
+  /** #29：允许系统通知 */
+  notifications_enabled: boolean;
 }
 
 export interface WeeklyReport {

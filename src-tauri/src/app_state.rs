@@ -98,6 +98,25 @@ impl AppState {
         Ok(())
     }
 
+    /// #29：若用户开启系统通知，则发送一条桌面通知。通知失败仅记录不报错。
+    pub fn maybe_notify(&self, app: &AppHandle, title: &str, body: &str) {
+        if !self.settings_cache.lock().notifications_enabled {
+            return;
+        }
+        use tauri_plugin_notification::NotificationExt;
+        let app = app.clone();
+        let title = title.to_string();
+        let body = body.to_string();
+        tauri::async_runtime::spawn(async move {
+            let _ = app
+                .notification()
+                .builder()
+                .title(title)
+                .body(body)
+                .show();
+        });
+    }
+
     pub fn export_weekly_png(&self) -> Result<String, String> {
         let report = self.weekly_report()?;
         let exports = self.data_dir.join("exports");
@@ -308,6 +327,8 @@ impl AppState {
                 FsmSideEffect::SevereEscalate => {
                     let _ = app.emit(events::EVT_PLAY_SOUND, "severe");
                     let _ = app.emit(events::EVT_DEBUG_LOG, "severe_escalate");
+                    // #29：L3 升级时发系统通知（若开启）
+                    self.maybe_notify(app, "DeepFlow · 严重干预", "手机持有过久，请放回并选择原因");
                 }
                 FsmSideEffect::PlaySound { kind } => {
                     let _ = app.emit(events::EVT_PLAY_SOUND, &kind);

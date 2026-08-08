@@ -95,6 +95,8 @@ const DEFAULT_SETTINGS: SettingsRecord = {
   auto_open_exports: true,
   whitelist_action: "report",
   sound_muted: false,
+  auto_start: false,
+  notifications_enabled: true,
 };
 
 export const MainWindow: React.FC = () => {
@@ -246,9 +248,60 @@ export const MainWindow: React.FC = () => {
   const saveSettings = async () => {
     try {
       await invoke("save_settings", { settings });
+      // #23：同步登录自启到系统
+      try {
+        await invoke("set_autostart_enabled", { enabled: settings.auto_start });
+      } catch (e) {
+        showError(`自启设置失败: ${e}`);
+      }
+      // #29：首次开启通知时申请权限
+      if (settings.notifications_enabled) {
+        try {
+          await invoke("request_notification_permission");
+        } catch {
+          /* 权限申请失败不阻断保存 */
+        }
+      }
       setSettingsOpen(false);
       showSuccess("设置已保存");
       await refresh();
+    } catch (e) {
+      showError(e);
+    }
+  };
+
+  // #33：检查更新
+  const checkUpdates = async () => {
+    try {
+      push("正在检查更新…", "info");
+      const r = await invoke<{ available: boolean; version?: string; body?: string }>(
+        "check_for_updates",
+      );
+      if (r.available) {
+        const ok = window.confirm(
+          `发现新版本 ${r.version ?? ""}\n\n${r.body ?? ""}\n\n是否立即下载并安装？`,
+        );
+        if (ok) {
+          push("正在下载更新…", "info");
+          await invoke("download_and_install_update");
+        }
+      } else {
+        showSuccess("已是最新版本（或未配置更新源）");
+      }
+    } catch (e) {
+      showError(e);
+    }
+  };
+
+  // #29：发送测试通知
+  const testNotification = async () => {
+    try {
+      await invoke("request_notification_permission");
+      await invoke("send_notification", {
+        title: "DeepFlow",
+        body: "系统通知已就绪",
+      });
+      showSuccess("已发送测试通知");
     } catch (e) {
       showError(e);
     }
@@ -273,7 +326,7 @@ export const MainWindow: React.FC = () => {
   const backupSettings = async () => {
     try {
       const path = await invoke<string>("backup_settings");
-      showSuccess(`设置了备份：${path}`);
+      showSuccess(`设置已备份：${path}`);
       try { await invoke("reveal_path", { path }); } catch { /* ignore */ }
     } catch (e) {
       showError(e);
@@ -898,6 +951,51 @@ export const MainWindow: React.FC = () => {
               数据目录：{dataDir || "（未加载）"}
               {pathMode ? <span className="ml-1 text-slate-600">（{pathMode}）</span> : null}
             </p>
+
+            {/* #23/#29/#33 系统集成 */}
+            <div className="mb-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+              <p className="mb-2 text-xs font-semibold text-slate-300">系统集成</p>
+              <label className="mb-2 flex items-center gap-2 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={settings.auto_start}
+                  onChange={() => setSettings({ ...settings, auto_start: !settings.auto_start })}
+                />
+                开机/登录时自动启动
+              </label>
+              <label className="mb-2 flex items-center gap-2 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={settings.notifications_enabled}
+                  onChange={() =>
+                    setSettings({
+                      ...settings,
+                      notifications_enabled: !settings.notifications_enabled,
+                    })
+                  }
+                />
+                启用系统通知
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void testNotification()}
+                  className="df-btn rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+                >
+                  测试通知
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void checkUpdates()}
+                  className="df-btn rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+                >
+                  检查更新
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">
+                自动更新需在 tauri.conf.json 配置有效 endpoint 与 pubkey 后才可下载安装。
+              </p>
+            </div>
 
             {/* #28 B1：数据导出 / 清空 / #30 静音 / #34 备份恢复 */}
             <div className="mb-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">

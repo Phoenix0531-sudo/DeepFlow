@@ -429,6 +429,91 @@ pub async fn restore_settings(
     Ok(s)
 }
 
+/// #23：登录时自启管理（读取当前状态）
+#[tauri::command]
+pub async fn get_autostart_enabled(app: AppHandle) -> Result<bool, String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let am = app.autolaunch();
+    am.is_enabled().map_err(|e| e.to_string())
+}
+
+/// #23：开启/关闭登录自启
+#[tauri::command]
+pub async fn set_autostart_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let am = app.autolaunch();
+    if enabled {
+        am.enable().map_err(|e| e.to_string())?;
+    } else {
+        am.disable().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// #29：请求系统通知权限（首次申请）
+#[tauri::command]
+pub async fn request_notification_permission(app: AppHandle) -> Result<bool, String> {
+    use tauri_plugin_notification::NotificationExt;
+    let state = app.notification().request_permission().map_err(|e| e.to_string())?;
+    Ok(matches!(state, tauri_plugin_notification::PermissionState::Granted))
+}
+
+/// #29：发送系统通知
+#[tauri::command]
+pub async fn send_notification(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|e| e.to_string())
+}
+
+/// #33：检查更新（需要 updater 配置有效 endpoint + pubkey）
+#[tauri::command]
+pub async fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let resp = app
+        .updater_builder()
+        .build()
+        .map_err(|e| e.to_string())?
+        .check()
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(update) = resp {
+        Ok(serde_json::json!({
+            "available": true,
+            "version": update.version,
+            "date": update.date.map(|d| d.to_string()).unwrap_or_default(),
+            "body": update.body.clone(),
+        }))
+    } else {
+        Ok(serde_json::json!({ "available": false }))
+    }
+}
+
+/// #33：下载并安装更新（安装后重启）
+#[tauri::command]
+pub async fn download_and_install_update(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let resp = app
+        .updater_builder()
+        .build()
+        .map_err(|e| e.to_string())?
+        .check()
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(update) = resp {
+        update
+            .download_and_install(|_, _| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        app.restart();
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn list_running_processes() -> Result<Vec<String>, String> {
     Ok(list_running_process_names())
