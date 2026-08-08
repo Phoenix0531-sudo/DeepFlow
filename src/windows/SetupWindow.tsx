@@ -346,13 +346,20 @@ export const SetupWindow: React.FC = () => {
                   onChange={(e) =>
                     setSettings({
                       ...settings,
-                      default_focus_mins: Number(e.target.value) || 45,
+                      default_focus_mins: Math.min(
+                        180,
+                        Math.max(5, Number(e.target.value) || 45),
+                      ),
                     })
                   }
                 />
               </label>
               <p className="text-sm text-slate-400">
-                紧急退出：双击 ESC（固定；设置页仅作记录）
+                紧急快捷键：{(settings.emergency_hotkey || "double_esc") === "double_esc"
+                  ? "双击 ESC"
+                  : settings.emergency_hotkey === "F9"
+                    ? "F9"
+                    : settings.emergency_hotkey || "未设置"}（设置页可改，紧急时退出会话并记录 L3 原因）
               </p>
               <label className="flex items-center gap-2 text-sm text-amber-400">
                 <input

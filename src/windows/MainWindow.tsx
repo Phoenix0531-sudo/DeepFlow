@@ -110,6 +110,8 @@ export const MainWindow: React.FC = () => {
   const [pathMode, setPathMode] = useState<string>("");
   const [hits, setHits] = useState<WhitelistHit[]>([]);
   const [processes, setProcesses] = useState<string[]>([]);
+  // #24：摄像头列表（与 SetupWindow 保持一致）
+  const [cameras, setCameras] = useState<string[]>([]);
   const [duration, setDuration] = useState(45);
   const [vision, setVision] = useState<VisionStatus | null>(null);
   // #14：模型自管理 UI 状态
@@ -220,6 +222,12 @@ export const MainWindow: React.FC = () => {
       setPathMode(info.mode);
     } catch {
       /* 忽略，下方默认展示空 */
+    }
+    // #24：加载摄像头列表
+    try {
+      setCameras(await invoke<string[]>("get_available_cameras"));
+    } catch {
+      /* 忽略，下拉为空时回退到文本输入 */
     }
     setSettingsOpen(true);
   };
@@ -358,7 +366,11 @@ export const MainWindow: React.FC = () => {
                 min={5}
                 max={180}
                 value={duration}
-                onChange={(e) => setDuration(Number(e.target.value) || 45)}
+                onChange={(e) =>
+                  setDuration(
+                    Math.min(180, Math.max(5, Number(e.target.value) || 45)),
+                  )
+                }
                 className="df-input ml-1 w-16 rounded-lg px-2 py-1 font-mono text-sm"
               />
               分
@@ -645,14 +657,31 @@ export const MainWindow: React.FC = () => {
 
             <label className="mb-4 block text-sm text-slate-300">
               摄像头设备
-              <input
-                className="df-input mt-1 w-full rounded-lg px-3 py-2 font-mono text-xs"
-                value={settings.camera_name}
-                placeholder="0 或 0|Integrated Camera"
-                onChange={(e) =>
-                  setSettings({ ...settings, camera_name: e.target.value })
-                }
-              />
+              {cameras.length > 0 ? (
+                <select
+                  className="df-input mt-1 w-full rounded-lg px-3 py-2 text-sm"
+                  value={settings.camera_name}
+                  onChange={(e) =>
+                    setSettings({ ...settings, camera_name: e.target.value })
+                  }
+                >
+                  <option value="">未选择</option>
+                  {cameras.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="df-input mt-1 w-full rounded-lg px-3 py-2 font-mono text-xs"
+                  value={settings.camera_name}
+                  placeholder="0 或 0|Integrated Camera"
+                  onChange={(e) =>
+                    setSettings({ ...settings, camera_name: e.target.value })
+                  }
+                />
+              )}
             </label>
 
             <button
