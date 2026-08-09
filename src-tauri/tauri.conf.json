@@ -43,8 +43,8 @@
   },
   "plugins": {
     "updater": {
-      "_comment": "发布前必须替换 pubkey 与 endpoints。生成密钥：tauri signer sign --generate-key。详见 docs/updater.md。占位值将使 check_for_updates 返回 configured:false。",
-      "pubkey": "",
+      "_comment": "已配置:pubkey 来源于本地 tauri signer generate 生成的密钥对公开部分(可入库)。私钥绝不入库,签名通过环境变量 TAURI_SIGNING_PRIVATE_KEY_PATH 注入(CI 时设)。endpoints 在本仓库保持空数组,正式发布前由持有者填入生产 https URL(参考 docs/updater.md)。本地验证已用 http://localhost:8787/updates.json + dangerousInsecureTransportProtocol=true 跑通 0.1.0->0.1.1 全流程(见 .auto/ideas.md / 文档)。",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlGRDUxQjgzQjVGOTFBOEIKUldTTEd2bTFneHZWbnk1NVZTUk13UGZObGM4dnBnV1IvMFNVVzNwWFNKTU5rVFJ6cUwrUm83T0UK",
       "endpoints": [],
       "windows": {
         "installMode": "passive"

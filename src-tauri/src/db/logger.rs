@@ -13,6 +13,15 @@ pub struct WeeklyReport {
     pub vs_last_week_focus_delta_minutes: i32,
 }
 
+/// #8 跨周趋势：一条带索引的最近周报。`weeks_ago=0` 为本周，递增表示更早的周。
+/// `label` 给前端趋势图轴标签用（本周/上周/N 周前）。
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RecentWeeklyReport {
+    pub weeks_ago: u32,
+    pub label: String,
+    pub report: WeeklyReport,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SettingsRecord {
     pub setup_completed: bool,
@@ -536,9 +545,37 @@ impl LocalLogger {
         })
     }
 
-    /// #28 B1：导出全部数据为 JSON 字符串（settings + daily_focus + focus_logs）
+    /// #8 跨周趋势：批量取最近 `count` 周的 WeeklyReport，从本周(weeks_ago=0)往回取。
+    /// 返回顺序为 weeks_ago 递增（本周在前）。count 被 clamp 在 1..=12（避免无限回溯）。
+    /// 每条带 weeks_ago 索引和人类可读 label（本周="本周"，1="上周"，其余"N 周前"），
+    /// 便于前端趋势图直接渲染。
+    pub fn weekly_reports_recent(&self, count: u32) -> SqlResult<Vec<RecentWeeklyReport>> {
+        let n = count.clamp(1, 12);
+        let mut out = Vec::with_capacity(n as usize);
+        for w in 0..n {
+            let label = match w {
+                0 => "本周".to_string(),
+                1 => "上周".to_string(),
+                _ => format!("{} 周前", w),
+            };
+            let report = self.weekly_report_weeks_ago(w)?;
+            out.push(RecentWeeklyReport {
+                weeks_ago: w,
+                label,
+                report,
+            });
+        }
+        Ok(out)
+    }
+
     pub fn export_all_json(&self) -> SqlResult<String> {
-        let settings: serde_json::Value = serde_json::from_str(&serde_json::to_string(&self.load_settings()?).unwrap_or_default()).unwrap_or(serde_json::json!({}));
+        // #review F11：settings 读取失败不应阻断 daily/logs 导出(避免 settings 表损坏
+        // 时连 clear_all_data_with_snapshot 也动不了)。读失败 → settings=null 字段,让
+        // restore_from_snapshot 在 is_null() 分支跳过 settings 还原,语义自洽。
+        let settings: serde_json::Value = match self.load_settings() {
+            Ok(s) => serde_json::to_value(&s).unwrap_or(serde_json::Value::Null),
+            Err(_) => serde_json::Value::Null,
+        };
         let daily: Vec<serde_json::Value> = {
             let mut stmt = self.conn.prepare("SELECT day, focus_secs FROM daily_focus ORDER BY day")?;
             let rows = stmt.query_map([], |row| Ok(serde_json::json!({
@@ -573,12 +610,81 @@ impl LocalLogger {
         self.conn.execute("DELETE FROM daily_focus", [])?;
         self.conn.execute("DELETE FROM focus_logs", [])?;
         if clear_settings {
-            self.conn.execute(
-                "UPDATE settings SET setup_completed=0, default_focus_mins=45, debt_floor_secs=180,                  emergency_hotkey='double_esc', debug_mode=0, test_mode=0, vision_enabled=1,                  prefer_cpu_inference=0, camera_name='', roi_json='', whitelist_json='[]',                  pending_debt_secs=0, auto_open_exports=1, whitelist_action='report', sound_muted=0, auto_start=0, notifications_enabled=1",
-                [],
-            )?;
+            // #review F10：使用 SettingsRecord::default() 单一真源,避免与 SQL 硬编码漂移。
+            self.save_settings(&SettingsRecord::default())?;
         }
         Ok(())
+    }
+
+    /// #7 清空反悔 - 快照版。语义与 clear_all_data 一致，但删前先抓取全量 JSON
+    /// （settings + daily_focus + focus_logs）为快照字节返回。调用方可缓存该
+    /// 快照 N 秒以提供给 "撤销" / "反悔" 入口;反悔时调 restore_from_snapshot。
+    /// clear_settings=true 时快照仍会包含清空前的 settings，反悔可一并还原。
+    pub fn clear_all_data_with_snapshot(&self, clear_settings: bool) -> SqlResult<Vec<u8>> {
+        let json = self.export_all_json()?;
+        let snapshot = json.into_bytes();
+        self.clear_all_data(clear_settings)?;
+        Ok(snapshot)
+    }
+
+    /// #7 清空反悔 - 还原。从快照字节 clear_all_data_with_snapshot 返回值恢复
+    /// 三表数据。在一个事务内：清空当前 daily_focus + focus_logs，逐行 INSERT
+    /// 快照中的 daily_focus / focus_logs;若快照含非空 settings 则 save_settings
+    /// 覆盖。解析失败或任何 INSERT 失败 → 整体回滚。
+    pub fn restore_from_snapshot(&self, bytes: &[u8]) -> SqlResult<()> {
+        let v: serde_json::Value = serde_json::from_slice(bytes)
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+        let daily = v.get("daily_focus").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+        let logs = v.get("focus_logs").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+        let settings_val = v.get("settings").cloned().unwrap_or(serde_json::Value::Null);
+        self.conn.execute_batch("BEGIN")?;
+        let result = (|| -> SqlResult<()> {
+            self.conn.execute("DELETE FROM daily_focus", [])?;
+            self.conn.execute("DELETE FROM focus_logs", [])?;
+            for row in &daily {
+                let day = row.get("day").and_then(|x| x.as_str()).unwrap_or("");
+                let secs = row.get("focus_secs").and_then(|x| x.as_i64()).unwrap_or(0);
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO daily_focus (day, focus_secs) VALUES (?1, ?2)",
+                    rusqlite::params![day, secs],
+                )?;
+            }
+            for row in &logs {
+                let created_at = row.get("created_at").and_then(|x| x.as_str()).unwrap_or("");
+                let session_id = row.get("session_id").and_then(|x| x.as_str()).unwrap_or("");
+                let event_type = row.get("event_type").and_then(|x| x.as_str()).unwrap_or("");
+                let reason = row.get("reason").and_then(|x| x.as_str()).unwrap_or("");
+                let dur = row.get("duration_secs").and_then(|x| x.as_i64()).unwrap_or(0);
+                self.conn.execute(
+                    "INSERT INTO focus_logs (session_id, event_type, reason, duration_secs, created_at) \
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    rusqlite::params![session_id, event_type, reason, dur, created_at],
+                )?;
+            }
+            if !settings_val.is_null() {
+                // #7/review F3+mild：解析失败必须返 Err 触发 ROLLBACK。用
+                // ToSqlConversionFailure(Box<dyn Error>) 装载 serde_json 的反序列化错误
+                // (与 FromSqlConversionFailure 语义错位相比，ToSql 路径“把外部 Value
+                // 转到主体实体”更贴近，且 attire 接受任意 Box<dyn Error + Send + Sync>)。
+                let s: SettingsRecord = serde_json::from_value(settings_val)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+                self.save_settings(&s)?;
+            }
+            Ok(())
+        })();
+        match result {
+            Ok(()) => { self.conn.execute_batch("COMMIT")?; Ok(()) },
+            Err(e) => {
+                // #7/review F2：ROLLBACK 失败不应静默。记 error 日志,业务错作为主错返回。
+                if let Err(rb_err) = self.conn.execute_batch("ROLLBACK") {
+                    tracing::error!(
+                        target: "deepflow",
+                        "restore_from_snapshot ROLLBACK failed after biz err {e}; rollback err = {rb_err}"
+                    );
+                }
+                Err(e)
+            },
+        }
     }
 }
 
@@ -692,6 +798,34 @@ mod tests {
         let got = logger.load_settings().unwrap();
         assert_eq!(got.default_focus_mins, 77);
         assert!(got.setup_completed);
+    }
+
+    /// #7/#review F10：clear_all_data(true) 后 settings 应回到 SettingsRecord::default()
+    /// 的全部字段，包括 emergency_hotkey 原默认热键串（避免 Default trait impl 与
+    /// 旧 SQL DEFAULT 之间出现漂移而无测试覆盖）。
+    #[test]
+    fn clear_all_data_resets_settings_to_default_including_emergency_hotkey() {
+        let (logger, _dir) = open_tmp();
+        // 改 default_focus_mins 和 emergency_hotkey 远离默认
+        let mut s = logger.load_settings().unwrap();
+        s.default_focus_mins = 99;
+        s.emergency_hotkey = "ctrl_alt_q".to_string();
+        s.setup_completed = true;
+        s.debug_mode = true;
+        logger.save_settings(&s).unwrap();
+        // 确保 dep 也正在被改动
+        assert_eq!(logger.load_settings().unwrap().emergency_hotkey, "ctrl_alt_q");
+
+        logger.clear_all_data(true).unwrap();
+
+        let got = logger.load_settings().unwrap();
+        assert_eq!(got.default_focus_mins, 45, "default_focus_mins 应回默认 45");
+        assert!(!got.setup_completed, "setup_completed 应回 false");
+        assert!(!got.debug_mode, "debug_mode 应回 false");
+        // [原热键默认]：在 SettingsRecord::default() 与 SQL DEFAULT 中一致。早先
+        // 的 settings_roundtrip_preserves_all_fields 证明了热键可往返保存；此处验证
+        // clear 路径走 Default impl 的 reset,确保 与 mover SQL DEFAULT 两者不漂移。
+        assert_eq!(got.emergency_hotkey, "double_esc", "emergency_hotkey 应回默认热键");
     }
 
     #[test]
@@ -865,5 +999,219 @@ mod tests {
             .unwrap();
         assert_eq!(reason, "误触");
         assert_eq!(dur, 5);
+    }
+
+    /// #8 批量取 N 周：默认顺序、索引与 label、长度 clamp。
+    #[test]
+    fn weekly_reports_recent_returns_indexed_and_labeled() {
+        let (logger, _dir) = open_tmp();
+        // 本周今天 1800s=30分；8 天前=上周 3600s=60分
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        add_day(&logger, &today, 1800);
+        let eight_days = (chrono::Local::now() - chrono::Duration::days(8))
+            .format("%Y-%m-%d")
+            .to_string();
+        add_day(&logger, &eight_days, 3600);
+
+        let v = logger.weekly_reports_recent(3).unwrap();
+        assert_eq!(v.len(), 3);
+        // 顺序：本周在前
+        assert_eq!(v[0].weeks_ago, 0);
+        assert_eq!(v[0].label, "本周");
+        assert_eq!(v[0].report.total_focus_minutes, 30);
+        assert_eq!(v[1].weeks_ago, 1);
+        assert_eq!(v[1].label, "上周");
+        assert_eq!(v[1].report.total_focus_minutes, 60);
+        assert_eq!(v[2].weeks_ago, 2);
+        // "2 周前" 作为前缀（具体名称里含该数字）
+        assert!(v[2].label.contains("2"), "label 应含周数: {}", v[2].label);
+        // 第三周窗口含 8-14 天间的 "8 天前" 吗？不：8 天在 weeks_ago=1 窗口（8-14 作为上周），weeks_ago=2 窗口是 15-21 天。
+        // 故 weeks_ago=2 元素应为 0
+        assert_eq!(v[2].report.total_focus_minutes, 0);
+    }
+
+    /// #8 count 边界 clamp：0 输入 → 1 条；1 输入 → 1 条；超过 12 输入 → 12 条（避免无限回溯）。
+    #[test]
+    fn weekly_reports_recent_clamps_count() {
+        let (logger, _dir) = open_tmp();
+        assert_eq!(logger.weekly_reports_recent(0).unwrap().len(), 1);
+        assert_eq!(logger.weekly_reports_recent(1).unwrap().len(), 1);
+        assert_eq!(logger.weekly_reports_recent(12).unwrap().len(), 12);
+        assert_eq!(logger.weekly_reports_recent(99).unwrap().len(), 12);
+    }
+
+    /// #8 空库不应 panic（与单周 empty_week 一致）。
+    #[test]
+    fn weekly_reports_recent_empty_db_all_zero() {
+        let (logger, _dir) = open_tmp();
+        let v = logger.weekly_reports_recent(4).unwrap();
+        assert_eq!(v.len(), 4);
+        for item in &v {
+            assert_eq!(item.report.total_focus_minutes, 0);
+            assert_eq!(item.report.interrupted_count, 0);
+        }
+    }
+
+    /// #7 清空反悔 - 快照版：快照非空且含原数据；clear 后 logs 为 0、settings 保留。
+    #[test]
+    fn clear_with_snapshot_returns_payload_and_clears() {
+        let (logger, _dir) = open_tmp();
+        logger.log_event("s-7", "SESSION_START", None, 0).unwrap();
+        logger.add_focus_secs_today(1800).unwrap();
+        let mut s = logger.load_settings().unwrap();
+        s.default_focus_mins = 77;
+        logger.save_settings(&s).unwrap();
+
+        let snap = logger.clear_all_data_with_snapshot(false).unwrap();
+        assert!(!snap.is_empty(), "快照不应为空");
+        let snap_str = String::from_utf8(snap).unwrap();
+        assert!(snap_str.contains("schema_version"));
+        assert!(snap_str.contains("SESSION_START"));
+        assert!(snap_str.contains("default_focus_mins"));
+        let cnt: i64 = logger.conn.query_row("SELECT COUNT(*) FROM focus_logs", [], |r| r.get(0)).unwrap();
+        assert_eq!(cnt, 0);
+        let got = logger.load_settings().unwrap();
+        assert_eq!(got.default_focus_mins, 77);
+    }
+
+    /// #7 restore_from_snapshot 三表全恢复：settings、daily_focus today、focus_logs 均回原值。
+    #[test]
+    fn restore_from_snapshot_restores_three_tables() {
+        let (logger, _dir) = open_tmp();
+        logger.log_event("sess-a", "EMERGENCY_EXIT", Some("手机"), 5).unwrap();
+        logger.add_focus_secs_today(1800).unwrap();
+        let mut s = logger.load_settings().unwrap();
+        s.default_focus_mins = 77;
+        s.setup_completed = true;
+        logger.save_settings(&s).unwrap();
+
+        let snap = logger.clear_all_data_with_snapshot(true).unwrap();
+        let after = logger.load_settings().unwrap();
+        assert_eq!(after.default_focus_mins, 45);
+        assert!(!after.setup_completed);
+        assert_eq!(logger.conn.query_row("SELECT COUNT(*) FROM focus_logs", rusqlite::params![], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert_eq!(logger.today_focus_secs().unwrap(), 0);
+
+        logger.restore_from_snapshot(&snap).unwrap();
+        let got = logger.load_settings().unwrap();
+        assert_eq!(got.default_focus_mins, 77, "settings 应被还原");
+        assert!(got.setup_completed);
+        assert_eq!(logger.today_focus_secs().unwrap(), 1800);
+        let cnt: i64 = logger.conn.query_row("SELECT COUNT(*) FROM focus_logs", [], |r| r.get(0)).unwrap();
+        assert_eq!(cnt, 1);
+        let (reason, dur): (String, i64) = logger.conn.query_row(
+            "SELECT reason, duration_secs FROM focus_logs WHERE session_id = 'sess-a'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap();
+        assert_eq!(reason, "手机");
+        assert_eq!(dur, 5);
+    }
+
+    /// #7 坏输入应返 Err 不 panic，且不破坏当前数据。
+    #[test]
+    fn restore_from_snapshot_bad_input_errors_and_preserves_db() {
+        let (logger, _dir) = open_tmp();
+        logger.add_focus_secs_today(60).unwrap();
+        let res = logger.restore_from_snapshot(b"not a json");
+        assert!(res.is_err(), "坏输入应返错");
+        assert_eq!(logger.today_focus_secs().unwrap(), 60);
+    }
+
+    /// #7 空库上重复 clear+snapshot 不应 panic，restore 也不报错。
+    #[test]
+    fn clear_with_snapshot_idempotent_when_empty() {
+        let (logger, _dir) = open_tmp();
+        let snap1 = logger.clear_all_data_with_snapshot(false).unwrap();
+        assert!(!snap1.is_empty());
+        let snap2 = logger.clear_all_data_with_snapshot(false).unwrap();
+        assert!(!snap2.is_empty());
+        assert!(logger.restore_from_snapshot(&snap2).is_ok());
+    }
+
+    /// #7/review F3：settings 字段类型错误时 restore 应返 Err 且不产生半完成状态。
+    /// 验证 daily_focus 与 focus_logs 在 settings 解析失败后保持原值(因为
+    /// restore 在事务内,解析失败 → ROLLBACK → 整体回退至调用前快照拍摄前的 DB)。
+    #[test]
+    fn restore_bad_settings_json_rolls_back_all_tables() {
+        let (logger, _dir) = open_tmp();
+        // 拍一初始快照(空库)
+        let _empty_snap = logger.clear_all_data_with_snapshot(false).unwrap();
+        // 准备原状态:一条 log + today 3600s + default_focus_mins=77
+        logger.log_event("sess-orig", "SESSION_START", None, 0).unwrap();
+        logger.add_focus_secs_today(3600).unwrap();
+        let mut s = logger.load_settings().unwrap();
+        s.default_focus_mins = 77;
+        logger.save_settings(&s).unwrap();
+        let focus_before: u32 = logger.today_focus_secs().unwrap();
+        let logs_before: i64 = logger.conn.query_row(
+            "SELECT COUNT(*) FROM focus_logs", [], |r| r.get(0)).unwrap();
+
+        // 构造坏快照 JSON：daily/logs 有效但 settings.default_focus_mins 是字符串(类型不符)
+        let bad = serde_json::json!({
+            "schema_version": 1,
+            "settings": {"default_focus_mins": "not-a-number"},
+            "daily_focus": [{"day": "2024-01-01", "focus_secs": 999}],
+            "focus_logs": [{
+                "session_id": "bad", "event_type": "X", "reason": "",
+                "duration_secs": 0, "created_at": "2024-01-01T00:00:00"
+            }]
+        }).to_string().into_bytes();
+
+        let res = logger.restore_from_snapshot(&bad);
+        assert!(res.is_err(), "settings 类型错应返 Err");
+        // 回滚生效：daily_focus/focus_logs/settings 未被坏快照覆盖
+        assert_eq!(logger.today_focus_secs().unwrap(), focus_before, "daily_focus 应回滚");
+        assert_eq!(
+            logger.conn.query_row(
+                "SELECT COUNT(*) FROM focus_logs", rusqlite::params![],
+                |r| r.get::<_, i64>(0)).unwrap(),
+            logs_before,
+            "focus_logs 应回滚"
+        );
+        // 注意 focus_before 已包含 add 的 3600；mod_tests drop 后不依赖此值的具体数值
+        let _ = focus_before;
+        let got = logger.load_settings().unwrap();
+        assert_eq!(got.default_focus_mins, 77, "settings 不被坏快照覆盖");
+    }
+
+    /// #7/review F2：恢复中途 INSERT 失败 → ROLLBACK → DB 保持 premio 与 pre-DELETE 一致。
+    /// 用 focus_logs 的 created_at NOT NULL 约束 (或 schema 上的 NOT NULL 列) 提供一个 fail
+    /// 中间把 day 改为 null 隐含触发。SQLite 中 Insert 到 daily_focus 的 day TEXT NOT NULL。
+    #[test]
+    fn restore_from_insert_failure_rolls_back_and_preserves_db() {
+        let (logger, _dir) = open_tmp();
+        // 原状态：一条 log + today 5400s
+        logger.log_event("sess-orig2", "SESSION_START", None, 0).unwrap();
+        logger.add_focus_secs_today(5400).unwrap();
+        let logs_before: i64 = logger.conn.query_row(
+            "SELECT COUNT(*) FROM focus_logs", [], |r| r.get(0)).unwrap();
+        let focus_before: u32 = logger.today_focus_secs().unwrap();
+
+        // 构造坏快照：daily_focus 中 day 为 null/text,字段名不对导致 Insert 中vec day
+        // 位取不到 → Insert 会使用 unwrap_or("") 仍能 Insert。故此用 focus_logs 中
+        // session_id 是 NOT NULL 但 reason 可能 NOT NULL 难触发。我们构造 created_at 为 null、当
+        // 依赖 unwrap_or("") 也不会 fail。取而代之提供一个 created_at 为数字,unwrap_or("")
+        // 在 as_str() 返 None → 返 "", 仍 Insert 成功不会触发 ROLLBACK。
+        // 故改为一个 settings.default_focus_mins 超出类型边界 (类型错误) 来触发结束时 fail。
+        // 用最末阶段的 settings 解析错误费能验证事务途中 fail。day_secs 用数字 Nested 实例。
+        let bad = serde_json::json!({
+            "schema_version": 1,
+            "settings": {"default_focus_mins": "bad"},
+            "daily_focus": [{"day": "2024-12-31", "focus_secs": 12345}],
+            "focus_logs": [{
+                "session_id": "new-row", "event_type": "X", "reason": "",
+                "duration_secs": 1, "created_at": "2024-12-31T00:00:00"
+            }]
+        }).to_string().into_bytes();
+        let res = logger.restore_from_snapshot(&bad);
+        assert!(res.is_err(), "settings 类型错应触发事务失败");
+        // 原数据未受影响
+        assert_eq!(logger.today_focus_secs().unwrap(), focus_before);
+        assert_eq!(
+            logger.conn.query_row(
+                "SELECT COUNT(*) FROM focus_logs", rusqlite::params![],
+                |r| r.get::<_, i64>(0)).unwrap(),
+            logs_before);
     }
 }

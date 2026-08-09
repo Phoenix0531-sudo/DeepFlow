@@ -1,5 +1,6 @@
 pub mod keyboard_hook;
 pub mod process_guard;
+pub mod whitelist_action;
 pub mod window_effects;
 
 pub use keyboard_hook::{
@@ -7,4 +8,5 @@ pub use keyboard_hook::{
     KeyboardHookEvent,
 };
 pub use process_guard::ProcessGuard;
+pub use whitelist_action::{classify_whitelist_action, select_targets, WhitelistActionKind};
 pub use window_effects::configure_overlay_window_style;

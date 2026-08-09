@@ -21,6 +21,9 @@ pub struct AppState {
     today_focus_secs: Arc<Mutex<u32>>,
     settings_cache: Arc<Mutex<SettingsRecord>>,
     whitelist_monitor_on: Arc<Mutex<bool>>,
+    /// #7/review F7：最后一个 clear_all_data_with_snapshot 的快照字节,缓存在 Rust 侧,
+    /// 避免经前端 base64 往返暴露 settings 全字段。restore_last_snapshot 取出后置 None。
+    last_clear_snapshot: Arc<Mutex<Option<Vec<u8>>>>,
 }
 
 impl AppState {
@@ -54,6 +57,7 @@ impl AppState {
             today_focus_secs: Arc::new(Mutex::new(today)),
             settings_cache: Arc::new(Mutex::new(settings)),
             whitelist_monitor_on: Arc::new(Mutex::new(false)),
+            last_clear_snapshot: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -68,6 +72,21 @@ impl AppState {
     /// #28：清空后重置内存中的今日累计。
     pub fn reset_today_focus_secs(&self) {
         *self.today_focus_secs.lock() = 0;
+    }
+
+    /// #7：clear_all_data 反悔 restore 后从 DB 同步今日累计。
+    pub fn set_today_focus_secs(&self, v: u32) {
+        *self.today_focus_secs.lock() = v;
+    }
+
+    /// #7/review F7：缓存最新 clear_all_data_with_snapshot 快照字节(Rust 侧)。
+    pub fn set_last_clear_snapshot(&self, snap: Vec<u8>) {
+        *self.last_clear_snapshot.lock() = Some(snap);
+    }
+
+    /// #7/review F7：取出最后一次 clear 的快照,取出后置 None(一次性)。
+    pub fn take_last_clear_snapshot(&self) -> Option<Vec<u8>> {
+        self.last_clear_snapshot.lock().take()
     }
 
     pub fn load_settings(&self) -> Result<SettingsRecord, String> {
@@ -401,15 +420,14 @@ impl AppState {
         }
 
         // #22：根据设置对违规进程执行最小化/礼貌关闭（不杀进程）
-        let action = self
-            .settings_cache
-            .lock()
-            .whitelist_action
-            .to_lowercase();
-        if action == "minimize" || action == "close_report" {
+        // #6：用 win32::classify_whitelist_action 把字符串配置映射为 enum、
+        // win32::select_targets 筛出真正需强制动作的目标。报告模式不发动作。
+        let action_str = self.settings_cache.lock().whitelist_action.clone();
+        let kind = crate::win32::classify_whitelist_action(&action_str);
+        if kind.should_enforce() {
             let guard = self.process_guard.lock();
-            for h in &compact {
-                let n = if action == "close_report" {
+            for h in crate::win32::select_targets(&compact, kind) {
+                let n = if kind == crate::win32::WhitelistActionKind::CloseReport {
                     guard.close_windows_of(h.pid)
                 } else {
                     guard.minimize_windows_of(h.pid)
@@ -417,8 +435,8 @@ impl AppState {
                 if n > 0 && self.settings_cache.lock().debug_mode {
                     debug!(
                         target: "deepflow",
-                        "whitelist_action={} {} pid={} windows={}",
-                        action, h.process_name, h.pid, n
+                        "whitelist_action={:?} {} pid={} windows={}",
+                        kind, h.process_name, h.pid, n
                     );
                 }
             }

@@ -1,5 +1,5 @@
 use crate::app_state::AppState;
-use crate::db::{SettingsRecord, WeeklyReport};
+use crate::db::{RecentWeeklyReport, SettingsRecord, WeeklyReport};
 use crate::fsm::{FsmEvent, SystemState};
 use crate::win32::process_guard::list_running_process_names;
 use crate::win32::configure_overlay_window_style;
@@ -339,6 +339,13 @@ pub async fn get_weekly_report_at(state: S<'_>, weeks_ago: u32) -> Result<Weekly
     state.logger.lock().weekly_report_weeks_ago(weeks_ago).map_err(|e| e.to_string())
 }
 
+/// #8：跨周趋势。返回最近 `count` 周（从本周往前）的带索引周报，
+/// 供前端趋势图轴渲染。count 被 clamp 到 1..=12。
+#[tauri::command]
+pub async fn get_weekly_reports_recent(state: S<'_>, count: u32) -> Result<Vec<RecentWeeklyReport>, String> {
+    state.logger.lock().weekly_reports_recent(count).map_err(|e| e.to_string())
+}
+
 /// #16：返回最近 limit 条 L3 原因记录，每条为 (created_at, reason)。
 #[tauri::command]
 pub async fn get_l3_reasons(state: S<'_>, limit: Option<u32>) -> Result<Vec<(String, String)>, String> {
@@ -384,6 +391,58 @@ pub async fn clear_all_data(
     // 今日专注累计清零
     state.reset_today_focus_secs();
     let _ = app.emit(crate::ipc::events::EVT_TODAY_FOCUS, 0u32);
+    Ok(())
+}
+
+/// #7 清空反悔 - 快照版 IPC。清空 + 快照写入 Rust 侧 state 缓存，不返回任何 payload。
+/// 反悔请调 restore_last_snapshot (前端无需拋讯 base64,避免 settings 全字段在前端往返)。
+#[tauri::command]
+pub async fn clear_all_data_with_snapshot(
+    app: AppHandle,
+    clear_settings: Option<bool>,
+    state: S<'_>,
+) -> Result<(), String> {
+    let reset = clear_settings.unwrap_or(false);
+    // #review F7：快照字节仅存 Rust 侧 Mutex,前端拿不到。
+    let snap = state
+        .logger
+        .lock()
+        .clear_all_data_with_snapshot(reset)
+        .map_err(|e| e.to_string())?;
+    state.set_last_clear_snapshot(snap);
+    if reset {
+        if let Ok(s) = state.logger.lock().load_settings() {
+            let _ = state.save_settings(&app, s);
+        }
+    }
+    state.reset_today_focus_secs();
+    let _ = app.emit(crate::ipc::events::EVT_TODAY_FOCUS, 0u32);
+    Ok(())
+}
+
+/// #7 清空反悔 - 还原 IPC。无参数：从 Rust 侧 state 缓存取最后一次 clear_all_data_with_snapshot
+/// 的快照，一次性 take 后置为 None。未缓存时返错提示“无可撤销操作”。
+#[tauri::command]
+pub async fn restore_last_snapshot(
+    app: AppHandle,
+    state: S<'_>,
+) -> Result<(), String> {
+    let bytes = state.take_last_clear_snapshot().ok_or_else(|| {
+        "无可用快照（已过期或未调用 clear_all_data_with_snapshot 时快照不保留）".to_string()
+    })?;
+    state
+        .logger
+        .lock()
+        .restore_from_snapshot(&bytes)
+        .map_err(|e| e.to_string())?;
+    // 快照可能还原了 settings，重新装入并刷新缓存
+    if let Ok(s) = state.logger.lock().load_settings() {
+        let _ = state.save_settings(&app, s);
+    }
+    // 同步今日专注累计到 restored daily_focus today 行
+    let today = state.logger.lock().today_focus_secs().unwrap_or(0);
+    state.set_today_focus_secs(today);
+    let _ = app.emit(crate::ipc::events::EVT_TODAY_FOCUS, today);
     Ok(())
 }
 
@@ -470,15 +529,21 @@ pub async fn send_notification(app: AppHandle, title: String, body: String) -> R
         .map_err(|e| e.to_string())
 }
 
-/// #33：检查更新。未配置 updater（endpoints/pubkey 任一为空）时返回
-/// `{ available: false, configured: false }`，前端据此给出"未配置"提示，
-/// 而不是误导用户"已是最新版本"。
-#[tauri::command]
-pub async fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, String> {
-    use tauri_plugin_updater::UpdaterExt;
-    // 读取 tauri.conf.json 的 plugins.updater 配置，检测是否真正配置过。
-    let cfg = app.config();
-    let updater_cfg = cfg.plugins.0.get("updater");
+/// #4 updater 配置可测状态。用于 check_for_updates 在调取 updater_builder 之前、
+/// 根据 `plugins.updater` 中的 `endpoints` 与 `pubkey` 判定是否真正配置过。
+/// 提出为纯函数便于单测(不需要 AppHandle)。
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum UpdaterConfigStatus {
+    /// endpoints 或 pubkey 任一为空：走 configured:false 分支。
+    NotConfigured(&'static str),
+    /// 两者均非空：可尝试调 updater_builder().check()。
+    Configured,
+}
+
+/// 判定 `plugins.updater` 配置是否完备。
+/// - `endpoints`: 必须是数组且非空
+/// - `pubkey`: 必须是字符串且 trim 后非空
+pub(crate) fn updater_config_status(updater_cfg: Option<&serde_json::Value>) -> UpdaterConfigStatus {
     let endpoints_empty = updater_cfg
         .and_then(|v| v.get("endpoints"))
         .map(|v| v.as_array().map(|a| a.is_empty()).unwrap_or(true))
@@ -488,10 +553,25 @@ pub async fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, Stri
         .map(|v| v.as_str().map(|s| s.trim().is_empty()).unwrap_or(true))
         .unwrap_or(true);
     if endpoints_empty || pubkey_empty {
+        return UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置");
+    }
+    UpdaterConfigStatus::Configured
+}
+
+/// #33：检查更新。未配置 updater（endpoints/pubkey 任一为空）时返回
+/// `{ available: false, configured: false }`，前端据此给出"未配置"提示，
+/// 而不是误导用户"已是最新版本"。
+#[tauri::command]
+pub async fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    // 读取 tauri.conf.json 的 plugins.updater 配置，检测是否真正配置过。
+    let cfg = app.config();
+    let updater_cfg = cfg.plugins.0.get("updater");
+    if let UpdaterConfigStatus::NotConfigured(reason) = updater_config_status(updater_cfg) {
         return Ok(serde_json::json!({
             "available": false,
             "configured": false,
-            "reason": "updater endpoints 或 pubkey 未配置",
+            "reason": reason,
         }));
     }
     let resp = app
@@ -757,4 +837,117 @@ pub async fn open_setup_window(app: AppHandle) -> Result<(), String> {
     .build()
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn updater_block_ref(value: &serde_json::Value) -> Option<&serde_json::Value> {
+        Some(value)
+    }
+
+    #[test]
+    fn updater_status_none_when_missing() {
+        // 完全没有 plugins.updater 块
+        assert_eq!(
+            updater_config_status(None),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_endpoints_empty() {
+        let cfg = json!({
+            "endpoints": [],
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IHNvbWVwdWJrZXkK"
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_pubkey_empty() {
+        let cfg = json!({
+            "endpoints": ["https://example.com/updates.json"],
+            "pubkey": ""
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_pubkey_only_whitespace() {
+        // trim 后为空也要判为未配置(避免 "   " 这种配置越过校验)
+        let cfg = json!({
+            "endpoints": ["https://example.com/updates.json"],
+            "pubkey": "   \n  "
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_endpoints_not_array() {
+        // endpoints 不是数组(类型错误) → 保护性判为空
+        let cfg = json!({
+            "endpoints": "https://example.com/updates.json",
+            "pubkey": "somekey"
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_configured_when_both_nonempty() {
+        let cfg = json!({
+            "endpoints": ["https://example.com/updates.json"],
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IHNvbWVwdWJrZXkK"
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::Configured
+        );
+    }
+
+    #[test]
+    fn updater_status_configured_with_multiple_endpoints() {
+        // 多端点 fallback 也算配置了
+        let cfg = json!({
+            "endpoints": [
+                "https://primary.com/updates.json",
+                "https://backup.com/updates.json"
+            ],
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IHNvbWVwdWJrZXkK"
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::Configured
+        );
+    }
+
+    #[test]
+    fn updater_status_handles_extra_fields_gracefully() {
+        // _comment / windows / dangerousInsecureTransportProtocol 等额外字段不应干扰判定
+        let cfg = json!({
+            "_comment": "just a comment",
+            "endpoints": ["https://example.com/updates.json"],
+            "pubkey": "somekey",
+            "windows": {"installMode": "passive"},
+            "dangerousInsecureTransportProtocol": true
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::Configured
+        );
+    }
 }
