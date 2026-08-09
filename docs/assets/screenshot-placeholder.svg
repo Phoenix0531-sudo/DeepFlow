@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="shot-title">
+  <title id="shot-title">DeepFlow 截图占位</title>
+  <defs>
+    <linearGradient id="s_bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0F1620"/>
+      <stop offset="100%" stop-color="#0B0F14"/>
+    </linearGradient>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="#1F2937"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="700" fill="url(#s_bg)"/>
+  <rect x="20" y="20" width="1160" height="660" rx="18" fill="url(#dots)" stroke="#1F2937" stroke-width="2" stroke-dasharray="6 6"/>
+  <g transform="translate(600 320)" text-anchor="middle" font-family="ui-sans-serif,system-ui,Segoe UI,Arial">
+    <circle cx="0" cy="0" r="44" fill="#1A2330" stroke="#374151"/>
+    <path d="M-18 -6 h36 v24 h-36 z M-18 -6 l18 14 l18 -14" fill="none" stroke="#7DD3FC" stroke-width="2.4"/>
+    <text y="86" font-size="20" font-weight="700" fill="#E2E8F0">截图占位</text>
+    <text y="116" font-size="13" fill="#64748B">本地构建 DeepFlow 后,将主屏 / 锁屏 / 周报截图替换此 SVG</text>
+    <text y="138" font-size="13" fill="#64748B">或在其路径下放置 PNG 覆盖引用</text>
+  </g>
+</svg>

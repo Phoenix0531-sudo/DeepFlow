@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 460" role="img" aria-labelledby="ladder-title">
+  <title id="ladder-title">DeepFlow 渐进式三阶干预</title>
+  <defs>
+    <linearGradient id="l_bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="100%" stop-color="#0F1620"/>
+    </linearGradient>
+    <linearGradient id="l1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0E3A2E"/>
+      <stop offset="100%" stop-color="#0A2A22"/>
+    </linearGradient>
+    <linearGradient id="l2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3A2E0E"/>
+      <stop offset="100%" stop-color="#2A230A"/>
+    </linearGradient>
+    <linearGradient id="l3" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3A0E12"/>
+      <stop offset="100%" stop-color="#2A0A12"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="460" fill="url(#l_bg)"/>
+
+  <text x="600" y="42" text-anchor="middle" font-family="ui-sans-serif,system-ui,Segoe UI,Arial"
+        font-size="22" font-weight="700" fill="#E2E8F0">渐进式三阶干预 · L1 → L2 → L3</text>
+  <text x="600" y="66" text-anchor="middle" font-family="ui-sans-serif,system-ui,Segoe UI,Arial"
+        font-size="13" fill="#64748B">持机时长越界 → 干预等级越严;放下手机约 1s 后恢复</text>
+
+  <!-- L1 (leftmost, low height) -->
+  <g transform="translate(60 280)">
+    <rect width="320" height="140" rx="16" fill="url(#l1)" stroke="#10B981" stroke-opacity="0.55"/>
+    <g transform="translate(24 28)">
+      <circle cx="14" cy="14" r="14" fill="#10B981"/>
+      <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#052E22">L1</text>
+      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#6EE7B7">温和提醒</text>
+    </g>
+    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#A7F3D0">触发:持机 60s + 30s 观察</text>
+    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#A7F3D0">动作:柔和 toast + 提示音</text>
+    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#A7F3D0">反馈:用户点「知道了」即解除</text>
+  </g>
+
+  <!-- L2 (middle, mid height) -->
+  <g transform="translate(420 230)">
+    <rect width="320" height="190" rx="16" fill="url(#l2)" stroke="#F59E0B" stroke-opacity="0.55"/>
+    <g transform="translate(24 28)">
+      <circle cx="14" cy="14" r="14" fill="#F59E0B"/>
+      <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#3A2A0A">L2</text>
+      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#FCD34D">橙色全屏</text>
+    </g>
+    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">触发:持机 120s(债务未清)</text>
+    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">动作:橙色全屏遮罩 + 提示音</text>
+    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">克制:可忽略,不强制锁屏</text>
+    <text x="24" y="150" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">声音:WebAudio 短促</text>
+    <text x="24" y="172" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">恢复:放下手机约 1s</text>
+  </g>
+
+  <!-- L3 (rightmost, tallest, locked) -->
+  <g transform="translate(780 110)">
+    <rect width="360" height="310" rx="16" fill="url(#l3)" stroke="#EF4444" stroke-opacity="0.65"/>
+    <g transform="translate(24 28)">
+      <circle cx="14" cy="14" r="14" fill="#EF4444"/>
+      <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#3A0A10">L3</text>
+      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#FCA5A5">红色锁屏 · 须输入原因</text>
+    </g>
+    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">触发:持机 180s 或关闭摄像头</text>
+    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">动作:红色锁屏 + 强提示音</text>
+    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">约束:不输入 reason 不能解锁</text>
+    <text x="24" y="150" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">记账:进入 focus_logs EMERGENCY</text>
+    <text x="24" y="172" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">加重:持续不配合升级</text>
+    <text x="24" y="194" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">回看:周报 "中断" + L3 原因点</text>
+    <g transform="translate(24 214)">
+      <rect width="312" height="78" rx="8" fill="#2A0A12" stroke="#5B0E18"/>
+      <text x="14" y="24" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FCA5A5">测试模式:L1=3s / L2=6s / L3=9s</text>
+      <text x="14" y="44" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FCA5A5">可 Overlay 输入「测试 / test」</text>
+      <text x="14" y="64" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FCA5A5">或「退出测试」立即结束</text>
+    </g>
+  </g>
+
+  <!-- arrows between steps -->
+  <g stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker></defs>
+    <line x1="382" y1="300" x2="418" y2="300"/>
+    <line x1="742" y1="300" x2="778" y2="300"/>
+  </g>
+
+  <!-- debt floor annotation under L1 bottom -->
+  <g transform="translate(60 432)" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="12" fill="#64748B">
+    * 债务下限默认 3 分钟(180 秒),可在 Setup 中调整 · 见 SettingsRecord::debt_floor_secs
+  </g>
+</svg>
