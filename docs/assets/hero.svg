@@ -75,14 +75,14 @@
 
   <!-- fact spine — larger for 900px readability -->
   <g id="facts" transform="translate(600 312)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">
-    <text x="0"   y="0" fill="#71717A">account  = 0</text>
-    <text x="170" y="0" fill="#71717A">cloud    = 0</text>
-    <text x="340" y="0" fill="#71717A">telemetry= 0</text>
-    <text x="520" y="0" fill="#71717A">endpoint = https</text>
-    <text x="0"   y="28" fill="#A1A1AA">windows  = 5</text>
-    <text x="170" y="28" fill="#A1A1AA">ipc      = 22</text>
-    <text x="340" y="28" fill="#A1A1AA">events   = full</text>
-    <text x="520" y="28" fill="#A1A1AA">tests    = 77/77</text>
+    <text x="0"   y="0"  fill="#71717A">account=0</text>
+    <text x="130" y="0"  fill="#71717A">cloud=0</text>
+    <text x="260" y="0"  fill="#71717A">telemetry=0</text>
+    <text x="400" y="0"  fill="#71717A">endpoint=https</text>
+    <text x="0"   y="28" fill="#A1A1AA">win=5</text>
+    <text x="130" y="28" fill="#A1A1AA">ipc=22</text>
+    <text x="260" y="28" fill="#A1A1AA">events=full</text>
+    <text x="400" y="28" fill="#A1A1AA">tests=77/77</text>
   </g>
 
   <!-- footer rule + meta -->
