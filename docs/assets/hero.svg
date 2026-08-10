@@ -82,7 +82,7 @@
     <text x="0"   y="28" fill="#A1A1AA">windows  = 5</text>
     <text x="170" y="28" fill="#A1A1AA">ipc      = 22</text>
     <text x="340" y="28" fill="#A1A1AA">events   = full</text>
-    <text x="520" y="28" fill="#A1A1AA">tests    = 72/72</text>
+    <text x="520" y="28" fill="#A1A1AA">tests    = 77/77</text>
   </g>
 
   <!-- footer rule + meta -->

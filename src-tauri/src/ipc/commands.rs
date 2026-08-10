@@ -959,4 +959,68 @@ mod tests {
             UpdaterConfigStatus::Configured
         );
     }
+
+    // —— 下层为各种异常 JSON 类型的保护行 behavior:
+
+    #[test]
+    fn updater_status_not_configured_when_endpoints_null() {
+        // endpoints 显式为 null (不是 [], 是 null) → 当作空
+        let cfg = json!({
+            "endpoints": null,
+            "pubkey": "somekey"
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_pubkey_null() {
+        // pubkey 显式为 null (不是空串) → 当作空
+        let cfg = json!({
+            "endpoints": ["https://example.com/updates.json"],
+            "pubkey": null
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_pubkey_is_number() {
+        // pubkey 类型错误(数字而非字符串) → as_str 返 None → 当作空
+        let cfg = json!({
+            "endpoints": ["https://example.com/updates.json"],
+            "pubkey": 12345
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_updater_block_is_null() {
+        // plugins.updater 为 null (类型错误的防击)
+        let cfg = json!(null);
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
+
+    #[test]
+    fn updater_status_not_configured_when_endpoints_is_empty_string() {
+        // endpoints 是单个空串 (不是Array) → 不是数组→当作空
+        let cfg = json!({
+            "endpoints": "",
+            "pubkey": "somekey"
+        });
+        assert_eq!(
+            updater_config_status(updater_block_ref(&cfg)),
+            UpdaterConfigStatus::NotConfigured("updater endpoints 或 pubkey 未配置")
+        );
+    }
 }
