@@ -43,7 +43,7 @@
 ## 🧱 架构分层
 
 <p align="center">
-  <img src="docs/assets/architecture.svg" alt="DeepFlow 架构分层" width="100%">
+  <img src="docs/assets/architecture.png" alt="DeepFlow 架构分层" width="100%">
 </p>
 
 服务端不可选、不可达 —— 图上所有模块都跑在用户机器本地。React 前端调用 `tauri::command` IPC 边界,所有文件落盘在 `data_dir`(env/便携/dev/install 四模式之一)。
@@ -53,7 +53,7 @@
 ## 🔄 视觉数据流
 
 <p align="center">
-  <img src="docs/assets/data-flow.svg" alt="DeepFlow 视觉数据流" width="100%">
+  <img src="docs/assets/data-flow.png" alt="DeepFlow 视觉数据流" width="100%">
 </p>
 
 无 ONNX 模型时,运行时回退到内置启发式检测器(`vision/detector.rs`)继续工作 —— 不需要先装相机才能用 DeepFlow。
@@ -63,7 +63,7 @@
 ## 🌡️ 渐进式三阶干预(核心差异化)
 
 <p align="center">
-  <img src="docs/assets/intervention-ladder.svg" alt="L1/L2/L3 渐进式三阶干预阶梯" width="100%">
+  <img src="docs/assets/intervention-ladder.png" alt="L1/L2/L3 渐进式三阶干预阶梯" width="100%">
 </p>
 
 DeepFlow 不"一上来就锁屏"。它对持机行为做**软→强递进**:**L1** 给 toast、**L2** 来橙色全屏但可忽略、**L3** 才锁屏逼你输入"刷手机的原因"——并把这次事件计入 SQLite,出现到周报"中断"统计中。持机时间越级触发,越级不可逆;放下手机约 1s 后状态恢复。
@@ -205,10 +205,10 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 ## 📸 截图
 
 <p align="center">
-  <img src="docs/assets/screenshot-placeholder.svg" alt="截图占位 — 本地构建后替换" width="80%">
+  <img src="docs/assets/screenshot-placeholder.png" alt="截图占位 — 本地构建后替换" width="80%">
 </p>
 
-> 截图占位:本地 `cargo tauri run` 后截图主屏 / Overlay 锁屏 / 浮钟 / 周报 PNG,替换 `docs/assets/screenshot-placeholder.svg` 即可。
+> 截图占位:本地 `cargo tauri run` 后截图主屏 / Overlay 锁屏 / 浮钟 / 周报 PNG,替换 `docs/assets/screenshot-placeholder.png` 即可。
 
 ---
 
