@@ -8,7 +8,7 @@ mod win32;
 
 use app_state::AppState;
 use fsm::FsmEvent;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -127,7 +127,13 @@ fn data_dir() -> PathBuf {
 }
 
 /// 首次启动：若 data/models 无 onnx，尝试从安装目录/资源旁复制。
-pub(crate) fn seed_models_if_needed(data: &PathBuf) -> u32 {
+/// `resource_dir` 来自 tauri `app.path().resource_dir()`，携带打进制 bundle
+/// 的 `seed_models/` 目录（由 tauri.conf.json bundle.resources 声明）。
+/// 不再依赖 cwd（干净机冷启动 cwd 不可控，曾导致 install 模式种子失败）。
+pub(crate) fn seed_models_if_needed(
+    data: &PathBuf,
+    resource_dir: Option<&Path>,
+) -> u32 {
     let dest = data.join("models");
     let _ = std::fs::create_dir_all(&dest);
     let has_onnx = std::fs::read_dir(&dest)
@@ -151,15 +157,18 @@ pub(crate) fn seed_models_if_needed(data: &PathBuf) -> u32 {
     let exe = std::env::current_exe().ok();
     let parent = exe.as_ref().and_then(|p| p.parent());
     let mut sources: Vec<PathBuf> = Vec::new();
-    if let Some(p) = parent {
-        sources.push(p.join("models"));
-        sources.push(p.join("resources").join("models"));
-        // tauri bundle 资源常见位置
-        sources.push(p.join("..").join("Resources").join("models"));
+    // 优先：tauri resources——install 模式唯一可靠来源
+    if let Some(rd) = resource_dir {
+        sources.push(rd.join("seed_models"));
+        // tauri resourcePrefix="_up_/Resources" 场景
+        sources.push(rd.join("_up").join("Resources").join("seed_models"));
     }
-    if let Ok(cwd) = std::env::current_dir() {
-        sources.push(cwd.join("data").join("models"));
-        sources.push(cwd.join("models"));
+    if let Some(p) = parent {
+        // dev / portable：exe 旁的 models（开发试运行）
+        sources.push(p.join("models"));
+        // tauri bundle 资源常见位置（exe 同级或上级 Resources）
+        sources.push(p.join("resources").join("seed_models"));
+        sources.push(p.join("..").join("Resources").join("seed_models"));
     }
 
     for src in sources {
@@ -235,7 +244,8 @@ pub fn run() {
     let boot_debug = LocalLoggerOpen::peek_debug(&data);
     init_logging(&data, boot_debug);
     tracing::info!(target: "deepflow", "data_dir={:?} mode={path_mode}", data);
-    seed_models_if_needed(&data);
+    // 注意：seed_models_if_needed 已移入 .setup()，需要 tauri app handle
+    // 拿 resource_dir()（bundle.resources 列出的资源在哪里，只有 tauri 运行时知道）。
 
     let state = AppState::new(data).expect("failed to init AppState");
     // 启动时同步紧急键模式（可在 save_settings 热更新）
@@ -253,6 +263,12 @@ pub fn run() {
         .setup({
             let state = state.clone();
             move |app| {
+                // Seed models（install 模式从 bundle.resources 的资源目录复制）
+                let resource_dir = app
+                    .path()
+                    .resource_dir()
+                    .ok();
+                let _ = seed_models_if_needed(&state.data_dir, resource_dir.as_deref());
 
                 // Keyboard hook → FSM
                 let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<KeyboardHookEvent>();

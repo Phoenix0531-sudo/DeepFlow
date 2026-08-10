@@ -327,10 +327,19 @@ pub async fn list_models(state: S<'_>) -> Result<Vec<ModelEntry>, String> {
     Ok(out)
 }
 
-/// #14：手动重新触发 seed_models（从安装目录/资源旁复制缺失 ONNX），返回本次复制数。
+/// #14：手动重新触发 seed_models（从 bundle.resources 的 seed_models/
+/// 目录复制缺失 ONNX），返回本次复制数。需要 tauri app handle 拿 resource_dir——
+/// install 模式唯一可靠来源（cwd 兜底已移除）。
 #[tauri::command]
-pub async fn reseed_models(state: S<'_>) -> Result<u32, String> {
-    Ok(crate::seed_models_if_needed(&state.data_dir))
+pub async fn reseed_models(
+    app: tauri::AppHandle,
+    state: S<'_>,
+) -> Result<u32, String> {
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .ok();
+    Ok(crate::seed_models_if_needed(&state.data_dir, resource_dir.as_deref()))
 }
 
 /// #15：返回指定历史周的聚合周报（weeks_ago=0 为本周）。
