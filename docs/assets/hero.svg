@@ -1,91 +1,77 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="hero-title">
-  <title id="hero-title">DeepFlow — Windows 本地端专注澹泊器</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 480" role="img" aria-labelledby="h-title">
+  <title id="h-title">DeepFlow — local Windows focus supervisor</title>
   <defs>
-    <radialGradient id="h_bg" cx="0.5" cy="0.5" r="0.9">
-      <stop offset="0%" stop-color="#27272A"/>
-      <stop offset="100%" stop-color="#161618"/>
+    <radialGradient id="bg" cx="0.5" cy="0.45" r="0.85">
+      <stop offset="0%"  stop-color="#1F1F22"/>
+      <stop offset="100%" stop-color="#0A0A0B"/>
     </radialGradient>
-    <radialGradient id="h_pupil" cx="0.4" cy="0.35" r="0.7">
-      <stop offset="0%" stop-color="#0A0A0A"/>
+    <radialGradient id="pupil" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%"  stop-color="#0A0A0A"/>
       <stop offset="100%" stop-color="#000000"/>
     </radialGradient>
   </defs>
 
-  <rect width="1200" height="320" fill="url(#h_bg)"/>
+  <!-- A. canvas -->
+  <rect width="1600" height="480" fill="url(#bg)"/>
 
-  <!-- subtle grid -->
-  <g stroke="#1F1F22" stroke-width="1" opacity="0.9">
-    <line x1="0" y1="80" x2="1200" y2="80"/>
-    <line x1="0" y1="160" x2="1200" y2="160"/>
-    <line x1="0" y1="240" x2="1200" y2="240"/>
-    <line x1="240" y1="0" x2="240" y2="320"/>
-    <line x1="480" y1="0" x2="480" y2="320"/>
-    <line x1="720" y1="0" x2="720" y2="320"/>
-    <line x1="960" y1="0" x2="960" y2="320"/>
+  <!-- B. hairline rule top — the page's lower edge of the badge row -->
+  <line x1="80" y1="64" x2="1520" y2="64" stroke="#27272A" stroke-width="1"/>
+
+  <!-- C. the SIGNATURE — supervised field. Three attention beams (L1 faint → L3 strong)
+       converge onto a watching lens. This is the project's whole idea in one picture. -->
+  <g id="signature" transform="translate(440 250)">
+    <!-- beam L1: far-left, faintest -->
+    <path d="M -380 -40 C -250 -8 -140 -4 -80 0"
+          fill="none" stroke="#3F3F46" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="-380" cy="-40" r="3" fill="#3F3F46"/>
+    <!-- beam L2: mid-left -->
+    <path d="M -360 0   C -240 3  -150 2  -84 0"
+          fill="none" stroke="#A1A1AA" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="-360" cy="0" r="3.5" fill="#A1A1AA"/>
+    <!-- beam L3: nearest, brightest — the strongest nudge -->
+    <path d="M -340 40  C -230 14 -150 6  -84 0"
+          fill="none" stroke="#FAFAFA" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="-340" cy="40" r="4.5" fill="#FAFAFA"/>
+
+    <!-- the watching lens — triple-ring iris + dark pupil + one sharp catchlight -->
+    <circle r="142" fill="none" stroke="#E4E4E7" stroke-width="6"/>
+    <circle r="72"  fill="url(#pupil)"/>
+    <circle r="86"  fill="none" stroke="#52525B" stroke-width="5"/>
+    <circle r="56"  fill="none" stroke="#71717A" stroke-width="5"/>
+    <circle r="34"  fill="none" stroke="#E4E4E7" stroke-width="6"/>
+    <circle r="18"  fill="#0A0A0A"/>
+    <ellipse cx="-7" cy="-8" rx="9" ry="6" fill="#A1A1AA" opacity="0.5"/>
+    <circle r="3.5" fill="#FAFAFA"/>
+
+    <!-- the beams stop just at the ring — never enter the lens; the supervisor watches the flow, not the other way around. -->
   </g>
 
-  <!-- LOGO MARK: selected iteration-15 (zinc triple-ring + crescent) -->
-  <g transform="translate(160 160) scale(1.05)">
-    <circle r="92" fill="none" stroke="#E4E4E7" stroke-width="8"/>
-    <circle r="52" fill="url(#h_pupil)"/>
-    <circle r="46" fill="none" stroke="#52525B" stroke-width="5"/>
-    <circle r="36" fill="none" stroke="#A1A1AA" stroke-width="5"/>
-    <circle r="26" fill="none" stroke="#FAFAFA" stroke-width="5"/>
-    <circle r="17" fill="#0A0A0A"/>
-    <ellipse cx="-5" cy="-6" rx="6" ry="4" fill="#A1A1AA" opacity="0.55"/>
-    <circle r="2.3" fill="#FAFAFA"/>
+  <!-- D. wordmark — restrained, no faux-3D, no glow -->
+  <g id="wordmark" transform="translate(780 196)">
+    <text font-family="ui-sans-serif, system-ui, Segoe UI, Inter, Helvetica, Arial, sans-serif"
+          font-size="92" font-weight="800" fill="#FAFAFA" letter-spacing="-3">DeepFlow</text>
+    <text y="58" font-family="ui-sans-serif, system-ui, Segoe UI, Inter, Helvetica, Arial, sans-serif"
+          font-size="24" fill="#A1A1AA" letter-spacing="0">监督镜头 · 视觉三级闯入 · 本地 Rust</text>
+    <text y="92" font-family="ui-sans-serif, system-ui, Segoe UI, Inter, Helvetica, Arial, sans-serif"
+          font-size="22" fill="#71717A">A Windows supervisor that reads the room and lifts attention back.</text>
   </g>
 
-  <!-- WORDMARK -->
-  <text x="298" y="118" font-family="ui-sans-serif,system-ui,Segoe UI,Inter,Arial,sans-serif"
-        font-size="64" font-weight="800" fill="#FAFAFA" letter-spacing="-1">
-    DeepFlow
-  </text>
-
-  <text x="300" y="160" font-family="ui-sans-serif,system-ui,Segoe UI,Inter,Arial,sans-serif"
-        font-size="22" fill="#A1A1AA">
-    本地端 · 零云端 · 视觉辅助的 Windows 专注澹泊器
-  </text>
-
-  <!-- palette strip — proof we used the zinc family, not AI defaults -->
-  <g transform="translate(300 188)">
-    <rect width="14" height="14" rx="2" fill="#18181B"/><rect x="20" width="14" height="14" rx="2" fill="#27272A"/>
-    <rect x="40" width="14" height="14" rx="2" fill="#52525B"/><rect x="60" width="14" height="14" rx="2" fill="#71717A"/>
-    <rect x="80" width="14" height="14" rx="2" fill="#A1A1AA"/><rect x="100" width="14" height="14" rx="2" fill="#E4E4E7"/>
-    <rect x="120" width="14" height="14" rx="2" fill="#FAFAFA"/>
-    <text x="148" y="11" font-family="ui-monospace,Menlo,monospace" font-size="11" fill="#71717A">zinc 黑灰冷峻族</text>
+  <!-- E. quantitative spine — structural facts, not marketing chips. Each row is one real true/false about the binary. -->
+  <g id="facts" transform="translate(780 332)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">
+    <text x="0"   y="0" fill="#52525B">account ……… 0</text>
+    <text x="220" y="0" fill="#52525B">cloud ……… 0</text>
+    <text x="430" y="0" fill="#52525B">telemetry … 0</text>
+    <text x="0"   y="26" fill="#A1A1AA">windows rims …  5</text>
+    <text x="220" y="26" fill="#A1A1AA">ipc commands … 22</text>
+    <text x="430" y="26" fill="#A1A1AA">tests passed …  72/72</text>
   </g>
 
-  <!-- meta -->
-  <text x="300" y="226" font-family="ui-sans-serif,system-ui,Segoe UI,Inter,Arial,sans-serif"
-        font-size="14" fill="#E4E4E7">
-    Tauri 2 · React 19 · Rust · ONNX 视觉 · SQLite 本地存储
-  </text>
-
-  <!-- chips -->
-  <g font-family="ui-sans-serif,system-ui,Segoe UI,Inter,Arial,sans-serif" font-size="13" font-weight="600">
-    <g transform="translate(300 246)">
-      <rect width="196" height="32" rx="16" fill="#27272A" stroke="#3F3F46"/>
-      <rect x="6" y="6" width="20" height="20" rx="10" fill="none" stroke="#71717A" stroke-width="2"/>
-      <circle cx="16" cy="16" r="3" fill="#FAFAFA"/>
-      <text x="36" y="21" fill="#E4E4E7">监督镜头 + L1/L2/L3 递进</text>
-    </g>
-    <g transform="translate(512 246)">
-      <rect width="180" height="32" rx="16" fill="#27272A" stroke="#3F3F46"/>
-      <rect x="6" y="8" width="6" height="16" rx="3" fill="#52525B"/>
-      <rect x="16" y="4" width="6" height="20" rx="3" fill="#A1A1AA"/>
-      <rect x="26" y="2" width="6" height="22" rx="3" fill="#FAFAFA"/>
-      <text x="46" y="21" fill="#E4E4E7">休息债务 + 平衡</text>
-    </g>
-    <g transform="translate(712 246)">
-      <rect width="212" height="32" rx="16" fill="#27272A" stroke="#3F3F46"/>
-      <rect x="10" y="14" width="32" height="4" rx="2" fill="#52525B"/>
-      <rect x="10" y="14" width="20" height="4" rx="2" fill="#FAFAFA"/>
-      <text x="56" y="21" fill="#E4E4E7">主屏遮罩 + 进程白名单</text>
-    </g>
-  </g>
-
-  <!-- corner watermark -->
-  <text x="1180" y="304" text-anchor="end" font-family="ui-monospace,Menlo,monospace"
-        font-size="10" fill="#3F3F46">v0.1.0 · MIT</text>
+  <!-- F. footer rule + version tag, the one quiet brand mark -->
+  <line x1="80" y1="416" x2="1520" y2="416" stroke="#27272A" stroke-width="1"/>
+  <text x="80" y="444" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="14" font-weight="600" fill="#A1A1AA">0.1.0</text>
+  <text x="142" y="444" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="14" fill="#3F3F46">—MIT licensed, single-binary Windows app —</text>
+  <text x="1520" y="444" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="14" fill="#3F3F46">build · tauri 2 / rust / react 19 / onnx</text>
 </svg>

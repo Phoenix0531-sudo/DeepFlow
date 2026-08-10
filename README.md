@@ -1,9 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="DeepFlow hero" width="100%">
-</p>
-
-<p align="center">
-  <img src="logos/export/logo-256.png" alt="DeepFlow logo" width="96" height="96">
+  <img src="docs/assets/hero.png" alt="DeepFlow hero" width="100%">
 </p>
 
 <p align="center">
@@ -19,11 +15,11 @@
 
 ---
 
-DeepFlow 是一款 **Windows 本地端、零云端、视觉辅助的专注澹泊器**。它做四件事:**主屏遮罩** 摄走注意力、**进程白名单** 挡住干扰源、**休息债务** 平衡努力与恢复、**视觉三级闯入** 在你"刷手机"时温和递进地把注意力请回来。
+**DeepFlow** 是 Windows 上一个本地应用 — 摄像头每秒看一眼你的桌面与坐姿,如果你在人机交互的“持机”姿势中停留超过阈值,它会用三级递进把你的注意力搏回去:一级轻提示,二级主屏遮罩下放低窗帘,三级进程白名单直接刷掉干扰源。
 
-所有计算与数据都在本地:- **没有账号、没有云端、没有数据上报**;
-- Rust 写核心,SQLite 存日志,数据目录可走 env 变量 / 便携标记 / 安装目录四种模式任你选;
-- 视觉检测使用 YOLO11n ONNX 模型,默认 CPU 推理(无 GPU 也能跑),也可切 GPU;没装模型时回退启发式检测器,功能不缺。
+- 全部推理与存储在本地: 0 账号、0 云、0 上报; Rust 内核 + SQLite 日志 + ONNX YOLO11n 视觉模型(CPU 默认, 可切 GPU)。模型缺位时自动回退到启发式检测器。
+- 数据目录可配: 环境变量、便携 flag、项目 dev data、`%LOCALAPPDATA%\DeepFlow` 四模式。
+- 一个二进制, 一套动用, 不依赖任何外部服务。
 
 ---
 
