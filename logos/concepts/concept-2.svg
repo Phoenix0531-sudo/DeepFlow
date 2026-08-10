@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="e2">
+  <title id="e2">DeepFlow v4-2: Open eye with hold bar</title>
+  <defs>
+    <linearGradient id="e2bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="100%" stop-color="#10131C"/>
+    </linearGradient>
+    <linearGradient id="e2iris" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 中心思想 = 监督
+       一只睁开的眼睛 (眼形 = 上下两条弧线 + 中间一个瞳), 是人类最容易识别的"监督"符号。
+       瞳孔里嵌入一条正在"读秒"的水平 hold 进度条 = 持机计数
+       (代码里 sliding_window.rs 的 wall-clock hold, 这是触发 L1/L2/L3 的判据)。
+       眼睫毛用 3 道从上眼皮指出的小线 = L1/L2/L3 监督的触发警示同时是配色载体。
+       16px: 横向 almond 形 + 中间瞳, 即辨识。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#e2bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- upper eyelid arc with 3 lashes = L1/L2/L3 -->
+    <path d="M -160 12 A 160 96 0 0 1 160 12" fill="none" stroke="url(#e2iris)" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- lashes, colored L1/L2/L3 -->
+    <line x1="-72" y1="-72" x2="-86" y2="-114" stroke="#10B981" stroke-width="14" stroke-linecap="round"/>
+    <line x1="0"   y1="-86" x2="0"   y2="-132" stroke="#F59E0B" stroke-width="14" stroke-linecap="round"/>
+    <line x1="72"  y1="-72" x2="86"  y2="-114" stroke="#EF4444" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- lower eyelid -->
+    <path d="M -160 12 A 160 96 0 0 0 160 12" fill="none" stroke="url(#e2iris)" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- iris with pupil -->
+    <circle r="76" fill="url(#e2iris)" opacity="0.24"/>
+    <circle r="76" fill="none" stroke="url(#e2iris)" stroke-width="10"/>
+    <circle r="46" fill="#0B0F14"/>
+
+    <!-- "hold" progress bar inside pupil, descending color along L1->L3 -->
+    <rect x="-28" y="-8" width="56" height="16" rx="8" fill="url(#e2iris)"/>
+    <rect x="-28" y="-8" width="20" height="16" rx="8" fill="#10B981"/>
+    <rect x="-8"  y="-8" width="20" height="16" rx="8" fill="#F59E0B"/>
+    <rect x="12"  y="-8" width="16" height="16" rx="8" fill="#EF4444"/>
+
+    <!-- highlight -->
+    <circle cx="-22" cy="-22" r="10" fill="#E5E7EB" opacity="0.7"/>
+  </g>
+</svg>

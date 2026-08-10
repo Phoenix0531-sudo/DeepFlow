@@ -18,3 +18,6 @@ data/*.db-*
 data/models/*.onnx
 data/models/*.pt
 tsconfig.tsbuildinfo
+
+# tauri default icon backup (replaced at logo v1)
+src-tauri/icons-bak-tauri-default/

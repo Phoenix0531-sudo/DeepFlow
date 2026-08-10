@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i8a">
+  <title id="i8a">DeepFlow iteration-8: zinc quiet stare</title>
+  <defs>
+    <radialGradient id="i8bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 取 iteration-4 思路但新色板:
+       极简凝视 — 厚外环 + 大深瞳 + 瞳里一条三段灰度 hold 条, 无外辐射, 16px 极清。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i8bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- 非常厚的外环, 双层 -->
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="22"/>
+    <circle r="184" fill="none" stroke="#3F3F46" stroke-width="2"/>
+
+    <!-- big dark pupil -->
+    <circle r="136" fill="#0A0A0A"/>
+    <circle r="136" fill="none" stroke="#3F3F46" stroke-width="6" opacity="0.7"/>
+
+    <!-- single hold readout bar, three grays -->
+    <rect x="-66" y="-14" width="132" height="28" rx="14" fill="#1F1F22"/>
+    <rect x="-60" y="-8"  width="36" height="16" rx="8" fill="#52525B"/>
+    <rect x="-20" y="-8"  width="36" height="16" rx="8" fill="#A1A1AA"/>
+    <rect x="20"  y="-8"  width="40" height="16" rx="8" fill="#FAFAFA"/>
+
+    <!-- watching highlight -->
+    <circle cx="-30" cy="-30" r="14" fill="#E4E4E7" opacity="0.85"/>
+  </g>
+</svg>

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i16a">
+  <title id="i16a">DeepFlow iteration-16: ring gradient + crescent</title>
+  <defs>
+    <radialGradient id="i16bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+    <linearGradient id="i16ring1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#52525B"/>
+      <stop offset="100%" stop-color="#71717A"/>
+    </linearGradient>
+    <linearGradient id="i16ring2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#71717A"/>
+      <stop offset="100%" stop-color="#A1A1AA"/>
+    </linearGradient>
+    <linearGradient id="i16ring3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A1A1AA"/>
+      <stop offset="100%" stop-color="#FAFAFA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- iter-9 base, 三层圈本身用 zinc 族内部渐变 = 半金属感
+       仍 0 强彩, 渐变只在 zinc 族内 = 没有变 AI 标
+       反光用月牙形 = 与 iter-14 一致 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i16bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="14"/>
+
+    <circle r="110" fill="#0A0A0A"/>
+
+    <circle r="98" fill="none" stroke="url(#i16ring1)" stroke-width="10"/>
+    <circle r="78" fill="none" stroke="url(#i16ring2)" stroke-width="10"/>
+    <circle r="56" fill="none" stroke="url(#i16ring3)" stroke-width="10"/>
+
+    <circle r="30" fill="#0A0A0A"/>
+
+    <!-- crescent reflection -->
+    <path d="M -22 -6 A 26 26 0 0 1 14 -26 A 30 30 0 0 0 -22 -6 Z" fill="#E4E4E7" opacity="0.85"/>
+    <circle cx="14" cy="-22" r="3" fill="#E4E4E7" opacity="0.7"/>
+  </g>
+</svg>

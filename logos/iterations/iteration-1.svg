@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="e1">
+  <title id="e1">DeepFlow v4-1: Watching lens</title>
+  <defs>
+    <linearGradient id="e1bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="100%" stop-color="#10131C"/>
+    </linearGradient>
+    <linearGradient id="e1iris" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <radialGradient id="e1pupil" cx="0.5" cy="0.5" r="0.55">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0B0F14"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 中心思想 = 监督
+       形状语言: 一个相机/眼睛的圆形光圈 (iris) 中心一只深瞳孔,
+       上方有一个小的镜头高光 = 正在"取看你"的当下细节,
+       L1/L2/L3 是从瞳孔中心向外辐射的三段警告弧, 强度递增颜色。
+       不是"流", 不是"债", 不是"涟漪", 就是一个看着你的镜头。
+       简单几何 / 中心对称 / 16px 即辨识 = 一个圆里有一个圆。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#e1bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- eye/lens outer ring -->
+    <circle r="184" fill="none" stroke="url(#e1iris)" stroke-width="14"/>
+
+    <!-- iris -->
+    <circle r="150" fill="url(#e1iris)" opacity="0.18"/>
+
+    <!-- three warning arcs radiating from pupil, L1 innermost green -> L3 outer red -->
+    <!-- each is a 70-degree arc on the right (the "anti" interruption sector) -->
+    <path d="M 56 -16 A 60 60 0 0 1 116 -44" fill="none" stroke="#10B981" stroke-width="14" stroke-linecap="round"/>
+    <path d="M 96 -48 A 104 104 0 0 1 168 -92" fill="none" stroke="#F59E0B" stroke-width="14" stroke-linecap="round"/>
+    <path d="M 140 -80 A 152 152 0 0 1 232 -132" fill="none" stroke="#EF4444" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- pupil -->
+    <circle r="56" fill="url(#e1pupil)" stroke="#7DD3FC" stroke-width="6"/>
+
+    <!-- lens highlight = currently watching -->
+    <circle cx="-18" cy="-22" r="14" fill="#E5E7EB" opacity="0.85"/>
+  </g>
+</svg>

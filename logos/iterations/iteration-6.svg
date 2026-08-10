@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i6a">
+  <title id="i6a">DeepFlow iteration-6: zinc triple-ring pupil</title>
+  <defs>
+    <radialGradient id="i6bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 取 iteration-2 思路但在新色板上: 瞳孔内三圈逐步收紧的灰度警戒带, 不外辐射。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i6bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="14"/>
+
+    <!-- big pupil territory (near-black) -->
+    <circle r="110" fill="#0A0A0A"/>
+
+    <!-- 三圈层级 L1/L2/L3 由内到外渐亮 = 张度递增 -->
+    <circle r="98" fill="none" stroke="#52525B" stroke-width="10"/>
+    <circle r="78" fill="none" stroke="#A1A1AA" stroke-width="10"/>
+    <circle r="56" fill="none" stroke="#FAFAFA" stroke-width="10"/>
+
+    <!-- center pupil -->
+    <circle r="40" fill="#0A0A0A"/>
+    <circle cx="-12" cy="-14" r="11" fill="#E4E4E7" opacity="0.85"/>
+  </g>
+</svg>

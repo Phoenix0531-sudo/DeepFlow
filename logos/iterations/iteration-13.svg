@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i13a">
+  <title id="i13a">DeepFlow iteration-13: soft-edged lens highlight</title>
+  <defs>
+    <radialGradient id="i13bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+    <radialGradient id="i13hi" cx="0.4" cy="0.4" r="0.6">
+      <stop offset="0%" stop-color="#E4E4E7" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#E4E4E7" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#E4E4E7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- iter-9 base, 反光改径向渐变软边
+       让它看起来像真正的玻璃反射, 而不是贴片白 (廉价 AI 浅景) -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i13bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="14"/>
+
+    <circle r="110" fill="#0A0A0A"/>
+
+    <circle r="98" fill="none" stroke="#52525B" stroke-width="10"/>
+    <circle r="78" fill="none" stroke="#A1A1AA" stroke-width="10"/>
+    <circle r="56" fill="none" stroke="#FAFAFA" stroke-width="10"/>
+
+    <circle r="30" fill="#0A0A0A"/>
+
+    <!-- 主反光: 软边的径向渐变椭圆, 偏左上 -->
+    <ellipse cx="-10" cy="-12" rx="18" ry="14" fill="url(#i13hi)"/>
+    <!-- 次微光 -->
+    <circle cx="10" cy="8" r="4" fill="#E4E4E7" opacity="0.4"/>
+  </g>
+</svg>

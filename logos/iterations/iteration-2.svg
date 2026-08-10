@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i2">
+  <title id="i2">DeepFlow iteration-2: Big pupil, triple-ring breathing inside</title>
+  <defs>
+    <linearGradient id="i2bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="100%" stop-color="#10131C"/>
+    </linearGradient>
+    <linearGradient id="i2iris" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Refine direction: 把 supervising 主体做大、做"重"。
+       瞳孔半径从 56 扩到 110, 外环半径从 184 收到 196,
+       L1/L2/L3 不再外辐射, 而是嵌在瞳孔里成为三圈 breathing 警戒带:
+         最内圈 L1 绿(最静)、中圈 L2 琥珀、外圈 L3 红(最紧)
+       "看着你" 的视觉权重更扎实。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i2bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- outer lens ring -->
+    <circle r="196" fill="none" stroke="url(#i2iris)" stroke-width="14"/>
+    <!-- faint iris wash -->
+    <circle r="196" fill="url(#i2iris)" opacity="0.10"/>
+
+    <!-- big pupil territory with three concentric guard rings inside -->
+    <circle r="110" fill="#0B0F14"/>
+    <!-- L1 innermost -->
+    <circle r="98"  fill="none" stroke="#10B981" stroke-width="10" opacity="0.9"/>
+    <!-- L2 mid -->
+    <circle r="78"  fill="none" stroke="#F59E0B" stroke-width="10" opacity="0.92"/>
+    <!-- L3 outermost -->
+    <circle r="56"  fill="none" stroke="#EF4444" stroke-width="10" opacity="0.95"/>
+
+    <!-- pupil center solid black, with watching highlight -->
+    <circle r="40" fill="#0B0F14"/>
+    <circle cx="-12" cy="-14" r="11" fill="#E5E7EB" opacity="0.85"/>
+  </g>
+</svg>

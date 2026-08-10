@@ -3,14 +3,18 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-7DD3FC.svg"></a>
-  <img alt="Platform: Windows" src="https://img.shields.io/badge/Platform-Windows_10%2B-0078D4.svg">
-  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2.0-A78BFA.svg">
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-DEA584.svg">
-  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB.svg">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-72%20passed%20%2F%200%20failed-10B981.svg">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-94A3B8.svg">
-  <img alt="ONNX" src="https://img.shields.io/badge/Vision-ONNX_YOLO11n-22D3EE.svg">
+  <img src="logos/export/logo-256.png" alt="DeepFlow logo" width="96" height="96">
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-A1A1AA.svg"></a>
+  <img alt="Platform: Windows" src="https://img.shields.io/badge/Platform-Windows_10%2B-A1A1AA.svg">
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2.0-A1A1AA.svg">
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-A1A1AA.svg">
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-A1A1AA.svg">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-72%20passed%20%2F%200%20failed-52525B.svg">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-71717A.svg">
+  <img alt="Vision" src="https://img.shields.io/badge/Vision-ONNX_YOLO11n-71717A.svg">
 </p>
 
 ---
@@ -220,6 +224,18 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 - feat / fix / docs / chore / test / refactor;
 - 中文 commit message,首行 ≤ 72 字;
 - 任何涉及 IPC 命令增删请同步 `src/types/tauri-ipc.ts` 与 `src-tauri/src/lib.rs` invoke_handler 注册数组。
+
+---
+
+## 🎨 设计与视觉
+
+品牌选型中心词 = **监督**(摄像头为你读帧、滑动窗读持机秒、设置读债务)。Logo / hero / 所有 SVG 统一走 zinc 黑灰冷峻族 (底 `#161618` / L1 `#52525B` / L2 `#A1A1AA` / L3 `#FAFAFA` / 文字 `#E4E4E7`)。原则:
+
+- **0 渐变 cyan→violet**: 绝不用 Linear / Vercel / AI 默认配色自带气质;
+- **0 强彩告警三色**: L1 / L2 / L3 给的是**灰度阶进**, 靠明度对比传递"紧", 不是靠红黄绿荧光;
+- **参照真实业界**: Cold Turkey Blocker 的 zinc 工具感、RescueTime 的严肃、Forest 的造物生态 — 见 `logos/preview.html` 的色板论证。
+
+logo 高 16-2048 px 已导出于 `logos/export/`(SVG + 7 PNG + ICO), 备份于 `logos/concepts` 与 `logos/iterations`。 见主顶部圆形 logo。
 
 ---
 

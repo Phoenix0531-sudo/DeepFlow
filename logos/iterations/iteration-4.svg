@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i4">
+  <title id="i4">DeepFlow iteration-4: Quiet stare</title>
+  <defs>
+    <linearGradient id="i4bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="100%" stop-color="#10131C"/>
+    </linearGradient>
+    <linearGradient id="i4iris" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Refine direction: 极简"监督的眼神"。
+       去掉所有外辐射告警弧, 只留: 很粗外环 + 大深瞳 + 瞳里一条三段色 hold 读数条。
+       L1/L2/L3 只藏在这条读数条里, 不再喧宾夺主。
+       主形状 = 一只安静的、看着你的深瞳。监督气氛更冷、更"盯"。16px 极清。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i4bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- very thick outer lens -->
+    <circle r="196" fill="none" stroke="url(#i4iris)" stroke-width="22"/>
+    <circle r="184" fill="none" stroke="url(#i4iris)" stroke-width="2" opacity="0.4"/>
+
+    <!-- big dark pupil territory -->
+    <circle r="136" fill="#0B0F14"/>
+    <circle r="136" fill="none" stroke="url(#i4iris)" stroke-width="6" opacity="0.7"/>
+
+    <!-- three-segment hold readout bar centered -->
+    <rect x="-66" y="-14" width="132" height="28" rx="14" fill="#0F1620"/>
+    <rect x="-60" y="-8"  width="36" height="16" rx="8" fill="#10B981"/>
+    <rect x="-20" y="-8"  width="36" height="16" rx="8" fill="#F59E0B"/>
+    <rect x="20"  y="-8"  width="40" height="16" rx="8" fill="#EF4444"/>
+
+    <!-- single watching highlight -->
+    <circle cx="-30" cy="-30" r="14" fill="#E5E7EB" opacity="0.8"/>
+  </g>
+</svg>

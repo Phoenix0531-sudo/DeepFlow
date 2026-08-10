@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i5a">
+  <title id="i5a">DeepFlow iteration-5: zinc watching lens (baseline of new palette)</title>
+  <defs>
+    <radialGradient id="i5bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 新色板: zinc 黑灰冷峻族, 0 渐变强彩, 0 cyan/violet. Cold Turkey 工具质感。
+       主形状仍是 concept-1 的"看着你的镜头", 但告警三段改为灰度阶进。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i5bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- outer lens ring (亮灰描边) -->
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="14"/>
+    <circle r="184" fill="none" stroke="#3F3F46" stroke-width="3"/>
+
+    <!-- 三段告警弧由瞳孔右侧外辐射, 改灰度阶进 -->
+    <path d="M 56 -16 A 60 60 0 0 1 116 -44" fill="none" stroke="#52525B" stroke-width="14" stroke-linecap="round"/>
+    <path d="M 96 -48 A 104 104 0 0 1 168 -92" fill="none" stroke="#A1A1AA" stroke-width="14" stroke-linecap="round"/>
+    <path d="M 140 -80 A 152 152 0 0 1 232 -132" fill="none" stroke="#FAFAFA" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- pupil 深黑底 + 一个微白反光 -->
+    <circle r="56" fill="#0A0A0A"/>
+    <circle r="56" fill="none" stroke="#3F3F46" stroke-width="6"/>
+    <!-- 反光 = 监督当下的"在看你"细节 -->
+    <circle cx="-18" cy="-22" r="14" fill="#E4E4E7" opacity="0.85"/>
+  </g>
+</svg>

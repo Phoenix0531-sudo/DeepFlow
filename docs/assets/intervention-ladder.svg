@@ -2,20 +2,20 @@
   <title id="ladder-title">DeepFlow 渐进式三阶干预</title>
   <defs>
     <linearGradient id="l_bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0B0F14"/>
-      <stop offset="100%" stop-color="#0F1620"/>
+      <stop offset="0%" stop-color="#161618"/>
+      <stop offset="100%" stop-color="#1F1F22"/>
     </linearGradient>
     <linearGradient id="l1" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#0E3A2E"/>
-      <stop offset="100%" stop-color="#0A2A22"/>
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#27272A"/>
     </linearGradient>
     <linearGradient id="l2" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#3A2E0E"/>
-      <stop offset="100%" stop-color="#2A230A"/>
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#27272A"/>
     </linearGradient>
     <linearGradient id="l3" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#3A0E12"/>
-      <stop offset="100%" stop-color="#2A0A12"/>
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#27272A"/>
     </linearGradient>
   </defs>
 
@@ -28,51 +28,51 @@
 
   <!-- L1 (leftmost, low height) -->
   <g transform="translate(60 280)">
-    <rect width="320" height="140" rx="16" fill="url(#l1)" stroke="#10B981" stroke-opacity="0.55"/>
+    <rect width="320" height="140" rx="16" fill="url(#l1)" stroke="#52525B" stroke-opacity="0.55"/>
     <g transform="translate(24 28)">
-      <circle cx="14" cy="14" r="14" fill="#10B981"/>
-      <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#052E22">L1</text>
-      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#6EE7B7">温和提醒</text>
+      <circle cx="14" cy="14" r="14" fill="#52525B"/>
+      <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#27272A">L1</text>
+      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#52525B">温和提醒</text>
     </g>
-    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#A7F3D0">触发:持机 60s + 30s 观察</text>
-    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#A7F3D0">动作:柔和 toast + 提示音</text>
-    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#A7F3D0">反馈:用户点「知道了」即解除</text>
+    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#71717A">触发:持机 60s + 30s 观察</text>
+    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#71717A">动作:柔和 toast + 提示音</text>
+    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#71717A">反馈:用户点「知道了」即解除</text>
   </g>
 
   <!-- L2 (middle, mid height) -->
   <g transform="translate(420 230)">
-    <rect width="320" height="190" rx="16" fill="url(#l2)" stroke="#F59E0B" stroke-opacity="0.55"/>
+    <rect width="320" height="190" rx="16" fill="url(#l2)" stroke="#A1A1AA" stroke-opacity="0.55"/>
     <g transform="translate(24 28)">
-      <circle cx="14" cy="14" r="14" fill="#F59E0B"/>
+      <circle cx="14" cy="14" r="14" fill="#A1A1AA"/>
       <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#3A2A0A">L2</text>
-      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#FCD34D">橙色全屏</text>
+      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#E4E4E7">橙色全屏</text>
     </g>
-    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">触发:持机 120s(债务未清)</text>
-    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">动作:橙色全屏遮罩 + 提示音</text>
-    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">克制:可忽略,不强制锁屏</text>
-    <text x="24" y="150" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">声音:WebAudio 短促</text>
-    <text x="24" y="172" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FDE68A">恢复:放下手机约 1s</text>
+    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#E4E4E7">触发:持机 120s(债务未清)</text>
+    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#E4E4E7">动作:橙色全屏遮罩 + 提示音</text>
+    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#E4E4E7">克制:可忽略,不强制锁屏</text>
+    <text x="24" y="150" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#E4E4E7">声音:WebAudio 短促</text>
+    <text x="24" y="172" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#E4E4E7">恢复:放下手机约 1s</text>
   </g>
 
   <!-- L3 (rightmost, tallest, locked) -->
   <g transform="translate(780 110)">
-    <rect width="360" height="310" rx="16" fill="url(#l3)" stroke="#EF4444" stroke-opacity="0.65"/>
+    <rect width="360" height="310" rx="16" fill="url(#l3)" stroke="#FAFAFA" stroke-opacity="0.65"/>
     <g transform="translate(24 28)">
-      <circle cx="14" cy="14" r="14" fill="#EF4444"/>
-      <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#3A0A10">L3</text>
-      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#FCA5A5">红色锁屏 · 须输入原因</text>
+      <circle cx="14" cy="14" r="14" fill="#FAFAFA"/>
+      <text x="14" y="19" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="800" fill="#27272A">L3</text>
+      <text x="44" y="20" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="16" font-weight="700" fill="#FAFAFA">红色锁屏 · 须输入原因</text>
     </g>
-    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">触发:持机 180s 或关闭摄像头</text>
-    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">动作:红色锁屏 + 强提示音</text>
-    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">约束:不输入 reason 不能解锁</text>
-    <text x="24" y="150" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">记账:进入 focus_logs EMERGENCY</text>
-    <text x="24" y="172" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">加重:持续不配合升级</text>
-    <text x="24" y="194" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FECACA">回看:周报 "中断" + L3 原因点</text>
+    <text x="24" y="84" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FAFAFA">触发:持机 180s 或关闭摄像头</text>
+    <text x="24" y="106" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FAFAFA">动作:红色锁屏 + 强提示音</text>
+    <text x="24" y="128" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FAFAFA">约束:不输入 reason 不能解锁</text>
+    <text x="24" y="150" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FAFAFA">记账:进入 focus_logs EMERGENCY</text>
+    <text x="24" y="172" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FAFAFA">加重:持续不配合升级</text>
+    <text x="24" y="194" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FAFAFA">回看:周报 "中断" + L3 原因点</text>
     <g transform="translate(24 214)">
-      <rect width="312" height="78" rx="8" fill="#2A0A12" stroke="#5B0E18"/>
-      <text x="14" y="24" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FCA5A5">测试模式:L1=3s / L2=6s / L3=9s</text>
-      <text x="14" y="44" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FCA5A5">可 Overlay 输入「测试 / test」</text>
-      <text x="14" y="64" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FCA5A5">或「退出测试」立即结束</text>
+      <rect width="312" height="78" rx="8" fill="#27272A" stroke="#3F3F46"/>
+      <text x="14" y="24" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FAFAFA">测试模式:L1=3s / L2=6s / L3=9s</text>
+      <text x="14" y="44" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FAFAFA">可 Overlay 输入「测试 / test」</text>
+      <text x="14" y="64" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#FAFAFA">或「退出测试」立即结束</text>
     </g>
   </g>
 

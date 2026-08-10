@@ -2,23 +2,23 @@
   <title id="arch-title">DeepFlow 架构分层</title>
   <defs>
     <linearGradient id="a_bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0F1620"/>
-      <stop offset="100%" stop-color="#0B0F14"/>
+      <stop offset="0%" stop-color="#1F1F22"/>
+      <stop offset="100%" stop-color="#161618"/>
     </linearGradient>
     <linearGradient id="a_layer_fe" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#1E293B"/>
       <stop offset="100%" stop-color="#172033"/>
     </linearGradient>
     <linearGradient id="a_layer_ipc" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#21304A"/>
-      <stop offset="100%" stop-color="#1A2A40"/>
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#1F1F22"/>
     </linearGradient>
     <linearGradient id="a_layer_rs" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#241B36"/>
-      <stop offset="100%" stop-color="#1B1528"/>
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#1F1F22"/>
     </linearGradient>
     <linearGradient id="a_layer_data" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0E2A24"/>
+      <stop offset="0%" stop-color="#27272A"/>
       <stop offset="100%" stop-color="#0A1F1A"/>
     </linearGradient>
   </defs>
@@ -33,105 +33,105 @@
   <!-- Frontend layer -->
   <g transform="translate(60 88)">
     <rect width="1080" height="86" rx="14" fill="url(#a_layer_fe)" stroke="#334155" stroke-opacity="0.55"/>
-    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#7DD3FC">FRONTEND · React 19 + Vite + Tailwind v4</text>
+    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#A1A1AA">FRONTEND · React 19 + Vite + Tailwind v4</text>
     <g font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#CBD5E1">
       <g transform="translate(24 44)">
-        <rect width="148" height="30" rx="8" fill="#0F1620" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">MainWindow 主屏</text>
+        <rect width="148" height="30" rx="8" fill="#1F1F22" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">MainWindow 主屏</text>
       </g>
       <g transform="translate(184 44)">
-        <rect width="148" height="30" rx="8" fill="#0F1620" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">OverlayLock 锁屏</text>
+        <rect width="148" height="30" rx="8" fill="#1F1F22" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">OverlayLock 锁屏</text>
       </g>
       <g transform="translate(344 44)">
-        <rect width="148" height="30" rx="8" fill="#0F1620" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">FloatingClock 浮钟</text>
+        <rect width="148" height="30" rx="8" fill="#1F1F22" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">FloatingClock 浮钟</text>
       </g>
       <g transform="translate(504 44)">
-        <rect width="148" height="30" rx="8" fill="#0F1620" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">Setup 向导</text>
+        <rect width="148" height="30" rx="8" fill="#1F1F22" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">Setup 向导</text>
       </g>
       <g transform="translate(664 44)">
-        <rect width="148" height="30" rx="8" fill="#0F1620" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">CameraPreview 预览</text>
+        <rect width="148" height="30" rx="8" fill="#1F1F22" stroke="#1E2A3A"/><text x="74" y="20" text-anchor="middle">CameraPreview 预览</text>
       </g>
       <g transform="translate(824 44)">
-        <rect width="232" height="30" rx="8" fill="#0F1620" stroke="#1E2A3A"/><text x="116" y="20" text-anchor="middle">hooks/useTauriEvents · 使用 useSpeechRecognition</text>
+        <rect width="232" height="30" rx="8" fill="#1F1F22" stroke="#1E2A3A"/><text x="116" y="20" text-anchor="middle">hooks/useTauriEvents · 使用 useSpeechRecognition</text>
       </g>
     </g>
   </g>
 
   <!-- connector -->
-  <line x1="600" y1="174" x2="600" y2="196" stroke="#7DD3FC" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
+  <line x1="600" y1="174" x2="600" y2="196" stroke="#A1A1AA" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
 
   <!-- IPC layer -->
   <g transform="translate(60 200)">
     <rect width="1080" height="78" rx="14" fill="url(#a_layer_ipc)" stroke="#3730A3" stroke-opacity="0.5"/>
-    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#A5B4FC">IPC COMMANDS · tauri::command (lib.rs 注册 + AppState/'State 共享)</text>
-    <g font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#C7D2FE">
+    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#E4E4E7">IPC COMMANDS · tauri::command (lib.rs 注册 + AppState/'State 共享)</text>
+    <g font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#FAFAFA">
       <g transform="translate(24 44)">
-        <rect width="240" height="26" rx="6" fill="#0F1525" stroke="#2A3650"/><text x="12" y="18">start_focus_session</text>
+        <rect width="240" height="26" rx="6" fill="#1F1F22" stroke="#3F3F46"/><text x="12" y="18">start_focus_session</text>
       </g>
       <g transform="translate(276 44)">
-        <rect width="240" height="26" rx="6" fill="#0F1525" stroke="#2A3650"/><text x="12" y="18">get_weekly_report(_at)</text>
+        <rect width="240" height="26" rx="6" fill="#1F1F22" stroke="#3F3F46"/><text x="12" y="18">get_weekly_report(_at)</text>
       </g>
       <g transform="translate(528 44)">
-        <rect width="240" height="26" rx="6" fill="#0F1525" stroke="#2A3650"/><text x="12" y="18">save_settings · check_for_updates</text>
+        <rect width="240" height="26" rx="6" fill="#1F1F22" stroke="#3F3F46"/><text x="12" y="18">save_settings · check_for_updates</text>
       </g>
       <g transform="translate(780 44)">
-        <rect width="276" height="26" rx="6" fill="#0F1525" stroke="#2A3650"/><text x="12" y="18">list_models · restart_vision · clear_all_data_with_snapshot</text>
+        <rect width="276" height="26" rx="6" fill="#1F1F22" stroke="#3F3F46"/><text x="12" y="18">list_models · restart_vision · clear_all_data_with_snapshot</text>
       </g>
     </g>
   </g>
 
-  <line x1="600" y1="278" x2="600" y2="300" stroke="#A78BFA" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
+  <line x1="600" y1="278" x2="600" y2="300" stroke="#E4E4E7" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
 
   <!-- Rust core layer -->
   <g transform="translate(60 304)">
-    <rect width="1080" height="120" rx="14" fill="url(#a_layer_rs)" stroke="#5B21B6" stroke-opacity="0.45"/>
-    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#C4B5FD">RUST CORE · src-tauri/src</text>
-    <g font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#E9D5FF">
+    <rect width="1080" height="120" rx="14" fill="url(#a_layer_rs)" stroke="#3F3F46" stroke-opacity="0.45"/>
+    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#E4E4E7">RUST CORE · src-tauri/src</text>
+    <g font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" fill="#FAFAFA">
       <g transform="translate(24 44)">
-        <rect width="200" height="30" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="20" text-anchor="middle">app_state.rs (cache)</text>
+        <rect width="200" height="30" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="20" text-anchor="middle">app_state.rs (cache)</text>
       </g>
       <g transform="translate(236 44)">
-        <rect width="200" height="30" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="20" text-anchor="middle">fsm/machine.rs 状态机</text>
+        <rect width="200" height="30" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="20" text-anchor="middle">fsm/machine.rs 状态机</text>
       </g>
       <g transform="translate(448 44)">
-        <rect width="200" height="30" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="20" text-anchor="middle">vision/pipeline ONNX</text>
+        <rect width="200" height="30" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="20" text-anchor="middle">vision/pipeline ONNX</text>
       </g>
       <g transform="translate(660 44)">
-        <rect width="200" height="30" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="20" text-anchor="middle">win32/ 用钩 · 进程守</text>
+        <rect width="200" height="30" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="20" text-anchor="middle">win32/ 用钩 · 进程守</text>
       </g>
       <g transform="translate(872 44)">
-        <rect width="184" height="30" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="92" y="20" text-anchor="middle">report/ 周报 PNG</text>
+        <rect width="184" height="30" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="92" y="20" text-anchor="middle">report/ 周报 PNG</text>
       </g>
 
       <g transform="translate(24 84)">
-        <rect width="200" height="28" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="19" text-anchor="middle">db/logger.rs SQLite</text>
+        <rect width="200" height="28" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="19" text-anchor="middle">db/logger.rs SQLite</text>
       </g>
       <g transform="translate(236 84)">
-        <rect width="200" height="28" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="19" text-anchor="middle">ipc/commands (42+)</text>
+        <rect width="200" height="28" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="19" text-anchor="middle">ipc/commands (42+)</text>
       </g>
       <g transform="translate(448 84)">
-        <rect width="200" height="28" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="19" text-anchor="middle">vision/detector · sliding_window</text>
+        <rect width="200" height="28" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="19" text-anchor="middle">vision/detector · sliding_window</text>
       </g>
       <g transform="translate(660 84)">
-        <rect width="200" height="28" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="100" y="19" text-anchor="middle">win32/window_effects 遮罩</text>
+        <rect width="200" height="28" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="100" y="19" text-anchor="middle">win32/window_effects 遮罩</text>
       </g>
       <g transform="translate(872 84)">
-        <rect width="184" height="28" rx="8" fill="#1B1528" stroke="#2E1F4D"/><text x="92" y="19" text-anchor="middle">ipc/events 兑现 emit</text>
+        <rect width="184" height="28" rx="8" fill="#1F1F22" stroke="#3F3F46"/><text x="92" y="19" text-anchor="middle">ipc/events 兑现 emit</text>
       </g>
     </g>
   </g>
 
-  <line x1="600" y1="424" x2="600" y2="446" stroke="#10B981" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
+  <line x1="600" y1="424" x2="600" y2="446" stroke="#52525B" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
 
   <!-- Data layer -->
   <g transform="translate(60 450)">
-    <rect width="1080" height="86" rx="14" fill="url(#a_layer_data)" stroke="#065F46" stroke-opacity="0.5"/>
-    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#6EE7B7">LOCAL DATA · data_dir (env / 便携 / dev / install 四模式)</text>
-    <g font-family="ui-monospace,Menlo,monospace" font-size="12.5" fill="#A7F3D0">
-      <g transform="translate(24 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#10443A"/><text x="12" y="20">deepflow.db (SQLite)</text></g>
-      <g transform="translate(216 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#10443A"/><text x="12" y="20">logs/</text></g>
-      <g transform="translate(408 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#10443A"/><text x="12" y="20">models/yolo11n.onnx</text></g>
-      <g transform="translate(600 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#10443A"/><text x="12" y="20">exports/周报 PNG</text></g>
-      <g transform="translate(792 44)"><rect width="264" height="30" rx="8" fill="#0A1F1A" stroke="#10443A"/><text x="12" y="20">portable.flag · DEEPFLOW_DATA_DIR</text></g>
+    <rect width="1080" height="86" rx="14" fill="url(#a_layer_data)" stroke="#3F3F46" stroke-opacity="0.5"/>
+    <text x="20" y="28" font-family="ui-sans-serif,system-ui,Segoe UI,Arial" font-size="13" font-weight="700" fill="#52525B">LOCAL DATA · data_dir (env / 便携 / dev / install 四模式)</text>
+    <g font-family="ui-monospace,Menlo,monospace" font-size="12.5" fill="#71717A">
+      <g transform="translate(24 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#3F3F46"/><text x="12" y="20">deepflow.db (SQLite)</text></g>
+      <g transform="translate(216 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#3F3F46"/><text x="12" y="20">logs/</text></g>
+      <g transform="translate(408 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#3F3F46"/><text x="12" y="20">models/yolo11n.onnx</text></g>
+      <g transform="translate(600 44)"><rect width="180" height="30" rx="8" fill="#0A1F1A" stroke="#3F3F46"/><text x="12" y="20">exports/周报 PNG</text></g>
+      <g transform="translate(792 44)"><rect width="264" height="30" rx="8" fill="#0A1F1A" stroke="#3F3F46"/><text x="12" y="20">portable.flag · DEEPFLOW_DATA_DIR</text></g>
     </g>
   </g>
 </svg>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i14a">
+  <title id="i14a">DeepFlow iteration-14: crescent lens-coating highlight</title>
+  <defs>
+    <radialGradient id="i14bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- iter-9 base, 反光改月牙形弧光
+       高光改为上侧一条向上凸的弧 = 单反镜头镀膜反射
+       = 工业感 + 更深的"是一个真的镜头在看你" -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i14bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="14"/>
+
+    <circle r="110" fill="#0A0A0A"/>
+
+    <circle r="98" fill="none" stroke="#52525B" stroke-width="10"/>
+    <circle r="78" fill="none" stroke="#A1A1AA" stroke-width="10"/>
+    <circle r="56" fill="none" stroke="#FAFAFA" stroke-width="10"/>
+
+    <circle r="30" fill="#0A0A0A"/>
+
+    <!-- crescent reflection: a thin arc curving up, like coating flare -->
+    <path d="M -22 -6
+             A 26 26 0 0 1 14 -26
+             A 30 30 0 0 0 -22 -6 Z"
+          fill="#E4E4E7" opacity="0.85"/>
+
+    <!-- tiny second flare far up-right -->
+    <circle cx="14" cy="-22" r="3" fill="#E4E4E7" opacity="0.7"/>
+  </g>
+</svg>

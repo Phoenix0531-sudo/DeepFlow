@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i11a">
+  <title id="i11a">DeepFlow iteration-11: bolder strokes, colder industrial</title>
+  <defs>
+    <radialGradient id="i11bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#161618"/>
+    </radialGradient>
+  </defs>
+
+  <!-- iter-6 base, 加粗描边 + 拉暗底色
+       - 外环 stroke 14 -> 22
+       - 三层圈 stroke 10 -> 14, 间距加大到比例
+       = 像工业设备的护环, Cold Turkey 的工具感拉到最满
+       - 瞳孔反光更细 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i11bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- 很厚的外环, 双层 -->
+    <circle r="200" fill="none" stroke="#E4E4E7" stroke-width="22"/>
+    <circle r="180" fill="none" stroke="#3F3F46" stroke-width="3"/>
+
+    <circle r="118" fill="#0A0A0A"/>
+
+    <!-- 三层圈, 间距更舒展, 描边更粗 -->
+    <circle r="104" fill="none" stroke="#52525B" stroke-width="14"/>
+    <circle r="78"  fill="none" stroke="#A1A1AA" stroke-width="14"/>
+    <circle r="50"  fill="none" stroke="#FAFAFA" stroke-width="14"/>
+
+    <circle r="30" fill="#0A0A0A"/>
+    <!-- 细反光 = 工业精度更克制 -->
+    <path d="M -18 -6 A 18 18 0 0 1 6 -22 A 18 18 0 0 1 -8 0 Z" fill="#E4E4E7" opacity="0.85"/>
+  </g>
+</svg>

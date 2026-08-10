@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i10a">
+  <title id="i10a">DeepFlow iteration-10: inverted rings (tight = innermost)</title>
+  <defs>
+    <radialGradient id="i10bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- iter-6 base, 反向读三圈:
+       L1 在外圈(最浅) → L3 在最内圈(最白/最紧).
+       语义解读: "圈层从外向内收紧到顶 = 监护升级到锁定".
+       视觉上 = 中心刺眼的白, 外周灰圈包覆, 比 iter-6 更紧绷更"集中盯你". -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i10bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="14"/>
+
+    <circle r="110" fill="#0A0A0A"/>
+
+    <!-- 外圈淡 gray (L1, 远, 早) -->
+    <circle r="98" fill="none" stroke="#3F3F46" stroke-width="10"/>
+    <!-- 中圈 zinc-400 (L2) -->
+    <circle r="78" fill="none" stroke="#71717A" stroke-width="10"/>
+    <!-- 内圈最.white (L3) -->
+    <circle r="56" fill="none" stroke="#FAFAFA" stroke-width="12"/>
+
+    <!-- 实心黑瞳收得更小 -->
+    <circle r="36" fill="#0A0A0A"/>
+    <circle cx="-10" cy="-12" r="11" fill="#E4E4E7" opacity="0.85"/>
+  </g>
+</svg>

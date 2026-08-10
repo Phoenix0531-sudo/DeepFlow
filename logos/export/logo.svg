@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i15a">
+  <title id="i15a">DeepFlow iteration-15: dim highlight + sharp inner pupil</title>
+  <defs>
+    <radialGradient id="i15bg" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="100%" stop-color="#18181B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- iter-9 base, 但弱化大白斑 + 加一颗小芯
+       反光不那么抢眼, 但中心留一颗极小的精致深白点 = "凝视的真正焦点"
+       整体更克制、不 AI 浅景 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i15bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <circle r="196" fill="none" stroke="#E4E4E7" stroke-width="14"/>
+
+    <circle r="110" fill="#0A0A0A"/>
+
+    <circle r="98" fill="none" stroke="#52525B" stroke-width="10"/>
+    <circle r="78" fill="none" stroke="#A1A1AA" stroke-width="10"/>
+    <circle r="56" fill="none" stroke="#FAFAFA" stroke-width="10"/>
+
+    <!-- 主瞳, 较大让形状稳 -->
+    <circle r="36" fill="#0A0A0A"/>
+
+    <!-- 弱化的反光椭圆 (透明度低, 不抢戏) -->
+    <ellipse cx="-10" cy="-12" rx="14" ry="10" fill="#A1A1AA" opacity="0.55"/>
+
+    <!-- 真正的"焦点" — 一颗小深白芯 -->
+    <circle r="5" fill="#FAFAFA"/>
+  </g>
+</svg>

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="i3">
+  <title id="i3">DeepFlow iteration-3: Sweep slots + hold bar</title>
+  <defs>
+    <linearGradient id="i3bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="100%" stop-color="#10131C"/>
+    </linearGradient>
+    <linearGradient id="i3iris" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Refine direction: 监督 + 持机读数 双重符号。
+       上半天空留出三道递增长度雷达扫描槽 L1→L2→L3 = 镜头扫到你时的 escalation。
+       下半瞳孔里嵌一条 hold 进度条, 三段色 = sliding_window 持机秒数正在读, 到阈值即触发。
+       两件事 = 监督看着你 + 监督在数你。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#i3bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- outer lens ring -->
+    <circle r="196" fill="none" stroke="url(#i3iris)" stroke-width="14"/>
+    <circle r="196" fill="url(#i3iris)" opacity="0.08"/>
+
+    <!-- three upward radar slots across the top = L1/L2/L3 escalating sweep -->
+    <rect x="-168" y="-150" width="56" height="36" rx="18" fill="#10B981"/>
+    <rect x="-28"  y="-180" width="56" height="60" rx="18" fill="#F59E0B"/>
+    <rect x="112"  y="-150" width="56" height="36" rx="18" fill="#EF4444"/>
+
+    <!-- lower center vertical slash linking slots to pupil: the scan beam -->
+    <line x1="0" y1="-92" x2="0" y2="-32" stroke="url(#i3iris)" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+
+    <!-- pupil -->
+    <circle r="84" fill="#0B0F14"/>
+    <circle r="84" fill="none" stroke="url(#i3iris)" stroke-width="8"/>
+
+    <!-- hold progress bar inside pupil = sliding_window readout, three colored segments -->
+    <rect x="-44" y="-12" width="88" height="24" rx="12" fill="#111824"/>
+    <rect x="-40" y="-8"  width="26" height="16" rx="8" fill="#10B981"/>
+    <rect x="-12" y="-8"  width="26" height="16" rx="8" fill="#F59E0B"/>
+    <rect x="16"  y="-8"  width="24" height="16" rx="8" fill="#EF4444"/>
+
+    <!-- watching highlight -->
+    <circle cx="-22" cy="-22" r="10" fill="#E5E7EB" opacity="0.7"/>
+  </g>
+</svg>

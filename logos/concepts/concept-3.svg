@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="e3">
+  <title id="e3">DeepFlow v4-3: Camera aperture watching you</title>
+  <defs>
+    <linearGradient id="e3bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="100%" stop-color="#10131C"/>
+    </linearGradient>
+    <linearGradient id="e3blade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <radialGradient id="e3pupil" cx="0.5" cy="0.5" r="0.6">
+      <stop offset="0%" stop-color="#E5E7EB"/>
+      <stop offset="40%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#0B0F14"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 中心思想 = 监督
+       一只相机光圈(aperture) —— 6 片 cyan→violet 渐变三角形 blade 围绕中心
+       围合成一个六角形"瞳孔", 中心一个深孔 = 正在"读你的帧"。
+       这是"监督"最直接、最工业的符号 = 摄像头本身。
+       L1/L2/L3 表述在三片"打开更大"的 blade 上做配色:
+         - 收得最紧的 blade 边缘是绿 = L1 (= picking up motion, gentle)
+         - 中间的 blade = 琥珀 = L2 (extended hold)
+         - 张得最大的 blade = 红 = L3 (locked in)
+       16px: 一个六角形 + 中心圆, 即辨识。 -->
+
+  <rect width="512" height="512" rx="112" fill="url(#e3bg)"/>
+
+  <g id="icon" transform="translate(256 256)">
+    <!-- six aperture blades, scaled so each blade's outer tip sits on a 180-px radius -->
+    <!-- L1 = gentle green; L2 = amber; L3 = red, allocated to three alternating blades -->
+    <g>
+      <!-- blade 1 (top) -->
+      <path d="M 0 -180 L 156 -90 L 0 -60 Z" fill="#10B981" opacity="0.85"/>
+      <!-- blade 2 (UR) -->
+      <path d="M 156 -90 L 156 90 L 60 0 Z" fill="url(#e3blade)"/>
+      <!-- blade 3 (LR) -->
+      <path d="M 156 90 L 0 180 L 0 60 Z" fill="#F59E0B" opacity="0.92"/>
+      <!-- blade 4 (bottom) -->
+      <path d="M 0 180 L -156 90 L 0 60 Z" fill="url(#e3blade)"/>
+      <!-- blade 5 (LL) -->
+      <path d="M -156 90 L -156 -90 L -60 0 Z" fill="#EF4444" opacity="0.92"/>
+      <!-- blade 6 (UL) -->
+      <path d="M -156 -90 L 0 -180 L 0 -60 Z" fill="url(#e3blade)"/>
+    </g>
+
+    <!-- inner hexagonal pupil boundary -->
+    <polygon points="0,-60 60,0 0,60 -60,0 -60,0 0,-60" fill="none" stroke="#0B0F14" stroke-width="4" opacity="0"/>
+
+    <!-- central deep aperture = the watching hole -->
+    <circle r="58" fill="url(#e3pupil)"/>
+    <circle r="58" fill="none" stroke="#0B0F14" stroke-width="6"/>
+
+    <!-- small camera-glass highlight = currently capturing -->
+    <circle cx="-18" cy="-22" r="12" fill="#E5E7EB" opacity="0.85"/>
+  </g>
+</svg>
