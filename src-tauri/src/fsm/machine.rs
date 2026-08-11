@@ -373,11 +373,14 @@ impl SystemFSM {
                             session_id: session_id.clone(),
                             debt_secs_owed: 0,
                         }),
-                        vec![FsmSideEffect::Log {
-                            event_type: "PULLBACK".into(),
-                            reason: Some("L1".into()),
-                            duration_secs: *phone_hold_duration_secs,
-                        }],
+                        vec![
+                            FsmSideEffect::HideOverlay,
+                            FsmSideEffect::Log {
+                                event_type: "PULLBACK".into(),
+                                reason: Some("L1".into()),
+                                duration_secs: *phone_hold_duration_secs,
+                            },
+                        ],
                     )
                 } else if hold_secs >= l2_threshold {
                     (
@@ -423,11 +426,14 @@ impl SystemFSM {
                             session_id: session_id.clone(),
                             debt_secs_owed: 0,
                         }),
-                        vec![FsmSideEffect::Log {
-                            event_type: "PULLBACK".into(),
-                            reason: Some("L2".into()),
-                            duration_secs: *phone_hold_duration_secs,
-                        }],
+                        vec![
+                            FsmSideEffect::HideOverlay,
+                            FsmSideEffect::Log {
+                                event_type: "PULLBACK".into(),
+                                reason: Some("L2".into()),
+                                duration_secs: *phone_hold_duration_secs,
+                            },
+                        ],
                     )
                 } else if hold_secs >= l3_threshold {
                     self.enter_l3(session_id, hold_secs)
@@ -457,11 +463,14 @@ impl SystemFSM {
                             session_id: session_id.clone(),
                             debt_secs_owed: 0,
                         }),
-                        vec![FsmSideEffect::Log {
-                            event_type: "L3_RECOVERED_BY_PUTDOWN".into(),
-                            reason: None,
-                            duration_secs: *phone_hold_duration_secs,
-                        }],
+                        vec![
+                            FsmSideEffect::HideOverlay,
+                            FsmSideEffect::Log {
+                                event_type: "L3_RECOVERED_BY_PUTDOWN".into(),
+                                reason: None,
+                                duration_secs: *phone_hold_duration_secs,
+                            },
+                        ],
                     )
                 } else {
                     (
