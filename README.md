@@ -8,7 +8,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2.0-A1A1AA.svg">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-A1A1AA.svg">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-A1A1AA.svg">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-72%20passed%20%2F%200%20failed-52525B.svg">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-77%20passed%20%2F%200%20failed-52525B.svg">
   <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-71717A.svg">
   <img alt="Vision" src="https://img.shields.io/badge/Vision-ONNX_YOLO11n-71717A.svg">
 </p>
@@ -115,7 +115,7 @@ cd src-tauri
 cargo test
 ```
 
-现覆盖(72 个单元测试通过):键盘热键解析、启发式检测器、`is_operating_phone` 边界、周报 PNG 生成、SQLite 日志/周报聚合、路径策略判定、FSM 集成冒烟(Start/L1/L3/原因/紧急退出)、历史周聚合、L3 原因回看、updater 配置检测、跨周趋势、清空反悔 ROLLBACK 一致性、emergency_hotkey 默认值漂移检测。
+现覆盖(77 个单元测试通过):键盘热键解析、启发式检测器、`is_operating_phone` 边界、周报 PNG 生成、SQLite 日志/周报聚合、路径策略判定、FSM 集成冒烟(Start/L1/L3/原因/紧急退出)、历史周聚合、L3 原因回看、updater 配置检测、跨周趋势、清空反悔 ROLLBACK 一致性、emergency_hotkey 默认值漂移检测。
 
 ### 视觉模型(可选)
 
