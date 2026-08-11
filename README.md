@@ -204,11 +204,19 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 
 ## 📸 截图
 
-<p align="center">
-  <img src="docs/assets/screenshot-placeholder.png" alt="截图占位 — 本地构建后替换" width="80%">
-</p>
+<table align="center">
+  <tr>
+    <td align="center"><b>主屏（测试模式 + 摄像头预览）</b></td>
+    <td align="center"><b>L3 Overlay 锁屏门口拦截</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/screenshot-main.png" alt="DeepFlow 主屏" width="480"></td>
+    <td align="center"><img src="docs/assets/screenshot-overlay.png" alt="L3 锁屏 Overlay" width="480"></td>
+  </tr>
+</table>
 
-> 截图占位:本地 `cargo tauri run` 后截图主屏 / Overlay 锁屏 / 浮钟 / 周报 PNG,替换 `docs/assets/screenshot-placeholder.png` 即可。
+> 主屏:状态 / 侧栏 / 启控按钮 + 测试模式摄像头预览。
+> L3 Overlay:计时进入第三阶，启动全屏锁屏门口拦截。
 
 ---
 
