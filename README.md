@@ -138,7 +138,7 @@ python scripts/download_yolo_onnx.py
 
 子目录:`db/`(SQLite)、`logs/`、`models/`(ONNX,缺失时从 `seed_models/` 自动复制)、`exports/`(周报 PNG)。
 
-前端「设置 → 路径信息」可调 `get_path_info` / `reveal_path`。路径策略手册详见 [附录 B](#附录-b路径策略主题验证手册)。
+前端「设置 → 路径信息」可调 `get_path_info` / `reveal_path`。路径策略手册详见 [附录 B](#user-content-appendix-b)。
 
 ---
 
@@ -189,7 +189,7 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 | 开发 | exe 路径在 `target/debug\|release` | `dev` | 仓库 `data/` 被使用 |
 | 安装 | `cargo tauri build` 生成的安装包安装 | `install` | `%LOCALAPPDATA%\DeepFlow\data` 被创建且写入 |
 
-完整手工验收清单(包括构建、干净机安装、写入、便携对照、env 覆盖、系统集成 #23/#29/#33 自启/通知/检查更新年末配置提示)见 [附录 B](#附录-b路径策略主题验证手册)。
+完整手工验收清单(包括构建、干净机安装、写入、便携对照、env 覆盖、系统集成 #23/#29/#33 自启/通知/检查更新年末配置提示)见 [附录 B](#user-content-appendix-b)。
 
 ---
 
@@ -258,11 +258,15 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 
 ---
 
+<a id="appendix-a"></a>
+
 ## 附录 A · 紧急退出热键副作用
 
 设置页「紧急热键」字段选 4 种之一;`save_settings` 后 `keyboard_hook` 原子热更新(无需重启)。
 
 **副作用**:紧急退出会**立即结束当前专注会话**,该次会话不计入今日专注;若处于 L3 颂罚,会写入 `EMERGENCY_EXIT` 日志事件(`focus_logs` 表,`event_type='emergency_exit'`,`reason='紧急退出'`),并在周报中以「中断」统计。同时隐藏浮钟、复位遮罩契约。
+
+<a id="appendix-b"></a>
 
 ## 附录 B · 路径策略主题验证手册
 
@@ -285,6 +289,8 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
    - [ ] 「测试通知」弹出系统通知中心 toast
    - [ ] 「检查更新」在未配置 endpoint/pubkey 时返回 `UpdaterConfigStatus::NotConfigured`(非"已是最新")
 
+<a id="appendix-c"></a>
+
 ## 附录 C · 干预约定速查
 
 - 债务下限:3 分钟(180 秒,可在 Setup 中调 `debt_floor_secs`)
@@ -292,6 +298,8 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 - L2:持机 120s,橙色全屏 + 声音,可忽略
 - L3:持机 180s 或关摄像头,红色锁屏直到输入原因
 - 黑屏手机(亮度 < 40 且无手-机重叠)不算操作
+
+<a id="appendix-d"></a>
 
 ## 附录 D · 白名单强制端到端
 
