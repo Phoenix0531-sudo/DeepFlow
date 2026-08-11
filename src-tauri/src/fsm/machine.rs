@@ -389,6 +389,7 @@ impl SystemFSM {
                             session_id: session_id.clone(),
                         }),
                         vec![
+                            FsmSideEffect::ShowOverlay,
                             FsmSideEffect::Log {
                                 event_type: "L2".into(),
                                 reason: None,
@@ -752,6 +753,7 @@ impl SystemFSM {
                             // 确保遮罩弹出，展示三选一（主窗也可能自行展示）
                             FsmSideEffect::ShowOverlay,
                             FsmSideEffect::StopWhitelistMonitor,
+                            FsmSideEffect::StopVision,
                         ],
                     )
                 } else {
@@ -806,11 +808,14 @@ impl SystemFSM {
                 session_id: session_id.to_string(),
                 escalate_elapsed_secs: 0,
             }),
-            vec![FsmSideEffect::Log {
-                event_type: "L3".into(),
-                reason: None,
-                duration_secs: hold_secs,
-            }],
+            vec![
+                FsmSideEffect::ShowOverlay,
+                FsmSideEffect::Log {
+                    event_type: "L3".into(),
+                    reason: None,
+                    duration_secs: hold_secs,
+                },
+            ],
         )
     }
 }
