@@ -237,9 +237,9 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 
 - **0 渐变 cyan→violet**: 绝不用 Linear / Vercel / AI 默认配色自带气质;
 - **0 强彩告警三色**: L1 / L2 / L3 给的是**灰度阶进**, 靠明度对比传递"紧", 不是靠红黄绿荧光;
-- **参照真实业界**: Cold Turkey Blocker 的 zinc 工具感、RescueTime 的严肃、Forest 的造物生态 — 见 `logos/preview.html` 的色板论证。
+- **参照真实业界**: Cold Turkey Blocker 的 zinc 工具感、RescueTime 的严肃、Forest 的造物生态。
 
-logo 高 16-2048 px 已导出于 `logos/export/`(SVG + 7 PNG + ICO), 备份于 `logos/concepts` 与 `logos/iterations`。 见主顶部圆形 logo。
+品牌过程在设计迭代后收敛于 hero：顶部 hero 中的三圈 iris 即品牌标识（L1 暗→L3 亮，中心点 SteelTeal 镜心）。logo 源文件与导出资产悉存于 `logos/`（concepts 3 + iterations 18 + export 10 = 10/16/32/48/128/192/256/512/1024/2048 px PNG + `icon.ico`），迭代调色游离过程见 `logos/preview.html`（本地设计低频率不对 README 读者渲染，但作为 Git 资产可查看）。
 
 ---
 
