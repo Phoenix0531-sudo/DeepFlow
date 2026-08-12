@@ -8,7 +8,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2.0-A1A1AA.svg">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-A1A1AA.svg">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-A1A1AA.svg">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-84%20passed%20%2F%200%20failed-52525B.svg">
+  <a href="https://github.com/Phoenix0531-sudo/DeepFlow/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Phoenix0531-sudo/DeepFlow/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Version" src="https://img.shields.io/badge/version-0.1.1-71717A.svg">
   <img alt="Vision" src="https://img.shields.io/badge/Vision-ONNX_YOLO11n-71717A.svg">
 </p>
