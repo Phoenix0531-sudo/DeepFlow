@@ -21,6 +21,21 @@
 - **四模式数据目录** — 环境变量 / 便携 flag / 项目 dev data / `%LOCALAPPDATA%\DeepFlow`。
 - **单一二进制** — 一次安装,不依赖任何外部服务。
 
+## 截图
+
+<table align="center">
+  <tr>
+    <td align="center"><b>主屏（测试模式 + 摄像头预览）</b></td>
+    <td align="center"><b>L3 Overlay 锁屏门口拦截</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/screenshot-main.png" alt="DeepFlow 主屏" width="480"></td>
+    <td align="center"><img src="docs/assets/screenshot-overlay.png" alt="L3 锁屏 Overlay" width="480"></td>
+  </tr>
+</table>
+
+主屏:状态 / 侧栏 / 启控按钮 + 测试模式摄像头预览。L3 Overlay:计时进入第三阶,启动全屏锁屏门口拦截。
+
 ---
 
 ## 核心特性
@@ -82,11 +97,7 @@ DeepFlow 不"一上来就锁屏"。它对持机行为做**软→强递进**:L1 �
 - WebView2
 - (可选)Python 3.12 + ultralytics:导出 Yolo11n ONNX
 
-编译前,在 **x64 Native Tools** 命令行或先执行:
-
-```bat
-"E:\1_Code\vs-buildtools\VC\Auxiliary\Build\vcvars64.bat"
-```
+编译前,在 **x64 Native Tools** 命令行中或先调用 vcvars64.bat 加载 MSVC 环境。
 
 ### 启动开发
 
@@ -146,7 +157,8 @@ python scripts/download_yolo_onnx.py
 
 ---
 
-## IPC 命令总览
+<details>
+<summary><b>IPC 命令总览(13 类 · 点击展开)</b></summary>
 
 | 主题 | 命令 | 备注 |
 |---|---|---|
@@ -164,6 +176,8 @@ python scripts/download_yolo_onnx.py
 | Setup | `check_setup` / `start_setup` / `open_setup_window` | |
 | 更新 | `check_for_updates` | `UpdaterConfigStatus` enum 自动屏蔽未配置 |
 
+</details>
+
 ---
 
 ## 安全与隐私
@@ -178,23 +192,6 @@ python scripts/download_yolo_onnx.py
 ## 阶段
 
 P0 多窗体 / FSM / 托盘 / 遮罩、P1 摄像头 + ONNX + L1–L3 + Setup ROI、P2 周报导出 / 热键可配 / 路径四模式 / seed 模型复制 均已完成。功能矩阵与历史脉络详 [P1-STATUS.md](P1-STATUS.md) 与 commit 历史。
-
----
-
-## 截图
-
-<table align="center">
-  <tr>
-    <td align="center"><b>主屏（测试模式 + 摄像头预览）</b></td>
-    <td align="center"><b>L3 Overlay 锁屏门口拦截</b></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/assets/screenshot-main.png" alt="DeepFlow 主屏" width="480"></td>
-    <td align="center"><img src="docs/assets/screenshot-overlay.png" alt="L3 锁屏 Overlay" width="480"></td>
-  </tr>
-</table>
-
-主屏:状态 / 侧栏 / 启控按钮 + 测试模式摄像头预览。L3 Overlay:计时进入第三阶,启动全屏锁屏门口拦截。
 
 ---
 
@@ -227,9 +224,12 @@ P0 多窗体 / FSM / 托盘 / 遮罩、P1 摄像头 + ONNX + L1–L3 + Setup ROI
 
 ---
 
+<details>
+<summary><b>附录 A-D(技术细节,点击展开)</b></summary>
+
 <a id="appendix-a"></a>
 
-## 附录 A · 紧急退出热键副作用
+### 附录 A · 紧急退出热键副作用
 
 设置页「紧急热键」字段选 4 种之一;`save_settings` 后 `keyboard_hook` 原子热更新(无需重启)。
 
@@ -237,7 +237,7 @@ P0 多窗体 / FSM / 托盘 / 遮罩、P1 摄像头 + ONNX + L1–L3 + Setup ROI
 
 <a id="appendix-b"></a>
 
-## 附录 B · 路径策略验证手册
+### 附录 B · 路径策略验证手册
 
 四种模式需在各自环境下手工验收,重点检查 `get_path_info` 返回的 `mode` 字段与写入位置:
 
@@ -257,7 +257,7 @@ P0 多窗体 / FSM / 托盘 / 遮罩、P1 摄像头 + ONNX + L1–L3 + Setup ROI
 
 <a id="appendix-c"></a>
 
-## 附录 C · 干预约定速查
+### 附录 C · 干预约定速查
 
 - 债务下限:3 分钟(180 秒,可在 Setup 中调 `debt_floor_secs`)
 - L1:持机 60s 触发,同时施加四路感知(提示音 chime + 系统 toast 通知 + 主屏 UI toast + 主屏状态文本切换),30s 观察窗口
@@ -267,6 +267,8 @@ P0 多窗体 / FSM / 托盘 / 遮罩、P1 摄像头 + ONNX + L1–L3 + Setup ROI
 
 <a id="appendix-d"></a>
 
-## 附录 D · 白名单强制端到端
+### 附录 D · 白名单强制端到端
 
 详见 [docs/whitelist-e2e.md](docs/whitelist-e2e.md),覆盖 classify → select_targets → 执行 minimize / close → 事件 emit 到前端 toast 的完整链路。
+
+</details>
