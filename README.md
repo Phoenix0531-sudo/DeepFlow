@@ -8,7 +8,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2.0-A1A1AA.svg">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-A1A1AA.svg">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-A1A1AA.svg">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-77%20passed%20%2F%200%20failed-52525B.svg">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-84%20passed%20%2F%200%20failed-52525B.svg">
   <img alt="Version" src="https://img.shields.io/badge/version-0.1.1-71717A.svg">
   <img alt="Vision" src="https://img.shields.io/badge/Vision-ONNX_YOLO11n-71717A.svg">
 </p>
@@ -115,7 +115,7 @@ cd src-tauri
 cargo test
 ```
 
-现覆盖(77 个单元测试通过):键盘热键解析、启发式检测器、`is_operating_phone` 边界、周报 PNG 生成、SQLite 日志/周报聚合、路径策略判定、FSM 集成冒烟(Start/L1/L3/原因/紧急退出)、历史周聚合、L3 原因回看、updater 配置检测、跨周趋势、清空反悔 ROLLBACK 一致性、emergency_hotkey 默认值漂移检测。
+现覆盖 84 个单元测试:键盘热键解析、启发式检测器、`is_operating_phone` 边界、周报 PNG 生成、SQLite 日志/周报聚合、路径策略判定、FSM 集成冒烟(Start/L1/L3/原因/紧急退出)、历史周聚合、L3 原因回看、updater 配置检测、跨周趋势、清空反悔 ROLLBACK 一致性、emergency_hotkey 默认值漂移检测、L1 进入触发 `NotifyL1`、FSM transition effect 锁定 (`HideOverlay`/`ShowOverlay`/`StopVision` 等) 6 个 regression test。
 
 ### 视觉模型(可选)
 
@@ -155,19 +155,21 @@ python scripts/download_yolo_onnx.py
 
 ## 🌐 IPC 命令总览
 
-设置类:`get_settings` / `save_settings` / `backup_settings`
-路径:`get_path_info` / `reveal_path`
-会话:`start_focus_session` / `stop_session` / `request_temporary_pause` / `resume_focus_session` / `skip_debt_and_resume`
-周报:`get_weekly_report` / `get_weekly_report_at` / `export_weekly_report_png`
-反悔:**`clear_all_data_with_snapshot`**(快照写入 Rust 侧 Mutex 不经前端 base64)+ **`restore_last_snapshot`**(一次性取出,过期或未缓存返"无可用快照"错)
-L3 原因:`get_l3_reasons`
-模型:`list_models` / `reseed_models`
-视觉:`get_vision_status` / `restart_vision` / `get_available_cameras`
-进程:`list_running_processes`
-白名单强制:`whitelist_action`(minimize / close / report 三策略)
-测试注入:`test_inject_level` / `test_exit_session`
-Setup:`check_setup` / `start_setup` / `open_setup_window`
-更新:`check_for_updates`(`UpdaterConfigStatus` enum 自动屏蔽未配置)
+| 主题 | 命令 | 备注 |
+|---|---|---|
+| 设置 | `get_settings` / `save_settings` / `backup_settings` | |
+| 路径 | `get_path_info` / `reveal_path` | |
+| 会话 | `start_focus_session` / `stop_session` / `request_temporary_pause` / `resume_focus_session` / `skip_debt_and_resume` | |
+| 周报 | `get_weekly_report` / `get_weekly_report_at` / `export_weekly_report_png` | |
+| 反悔 | **`clear_all_data_with_snapshot`** / **`restore_last_snapshot`** | 快照写 Rust 侧 Mutex 不经前端 base64；过期或未缓存返 "无可用快照" 错 |
+| L3 原因 | `get_l3_reasons` | |
+| 模型 | `list_models` / `reseed_models` | |
+| 视觉 | `get_vision_status` / `restart_vision` / `get_available_cameras` | |
+| 进程 | `list_running_processes` | |
+| 白名单强制 | `whitelist_action` | minimize / close / report 三策略 |
+| 测试注入 | `test_inject_level` / `test_exit_session` | |
+| Setup | `check_setup` / `start_setup` / `open_setup_window` | |
+| 更新 | `check_for_updates` | `UpdaterConfigStatus` enum 自动屏蔽未配置 |
 
 ---
 
@@ -195,10 +197,7 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 
 ## 🚧 阶段与未来
 
-- **P0**(done):多窗体、FSM、托盘、遮罩、白名单扫描、债务、设置、调试日志
-- **P1**(done):摄像头 + ONNX 检测 + L1–L3 + Setup 预览/ROI、滑窗墙钟 hold
-- **P2**(done):周报 PNG 导出、紧急热键可配、数据目录四模式、便携标记 / seed 模型复制
-- **P3**(进行中):进程白名单强制(`whitelist_action`)、摄像头下拉统一、聚焦时长上下限、Setup 可配债务下限、白名单进程搜索、债务结算、模型自管理 UI、周报历史周查看、L3 原因回看、托盘菜单扩展、CSP 收紧、浮钟置顶可调、开机自启 / 系统通知 / 自动更新骨架、关于页版本信息、通知全覆盖
+P0 多窗体/FSM/托盘/遮罩、P1 摄像头 + ONNX + L1–L3 + Setup ROI、P2 周报导出/热键可配/路径四模式/seed 模型复制 均已完成；P3 正在补齐：进程白名单强制、模型自管理 UI、周报历史周、L3 原因回看、CSP 收紧、开机自启/通知/自动更新骨架。
 
 ---
 
@@ -233,13 +232,7 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 
 ## 🎨 设计与视觉
 
-品牌选型中心词 = **监督**(摄像头为你读帧、滑动窗读持机秒、设置读债务)。Logo / hero / 所有 SVG 统一走 zinc 黑灰冷峻族 (底 `#161618` / L1 `#52525B` / L2 `#A1A1AA` / L3 `#FAFAFA` / 文字 `#E4E4E7`)。原则:
-
-- **0 渐变 cyan→violet**: 绝不用 Linear / Vercel / AI 默认配色自带气质;
-- **0 强彩告警三色**: L1 / L2 / L3 给的是**灰度阶进**, 靠明度对比传递"紧", 不是靠红黄绿荧光;
-- **参照真实业界**: Cold Turkey Blocker 的 zinc 工具感、RescueTime 的严肃、Forest 的造物生态。
-
-品牌过程在设计迭代后收敛于 hero：顶部 hero 中的三圈 iris 即品牌标识（L1 暗→L3 亮，中心点 SteelTeal 镜心）。logo 源文件与导出资产悉存于 `logos/`（concepts 3 + iterations 18 + export 10 = 10/16/32/48/128/192/256/512/1024/2048 px PNG + `icon.ico`），迭代调色游离过程见 `logos/preview.html`（本地设计低频率不对 README 读者渲染，但作为 Git 资产可查看）。
+品牌选型中心词 = **监督**(摄像头为你读帧、滑动窗读持机秒、设置读债务)。统一走 zinc 黑灰冷峻族(底 `#161618` / L1 `#52525B` / L2 `#A1A1AA` / L3 `#FAFAFA` / 文字 `#E4E4E7`)，三原则：**0 渐变 cyan→violet**(不贪 Linear/Vercel 默认气质)、**0 强彩告警三色**(L1/L2/L3 靠灰度阶进传“紧”，不是荧光)、**参照真实业界**(Cold Turkey 工具感、RescueTime 严肃、Forest 造物生态)。品牌过程收敛于 hero 顶部三圈 iris(L1 暗→L3 亮，SteelTeal 镜心)。logo 源文件与导出资产存 `logos/`(concepts 3 + iterations 18 + export 10 个尺寸 PNG + `icon.ico`)，迭代过程见 `logos/preview.html`(本地资产可查看，不对读者渲染)。
 
 ---
 
@@ -294,7 +287,7 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 ## 附录 C · 干预约定速查
 
 - 债务下限:3 分钟(180 秒,可在 Setup 中调 `debt_floor_secs`)
-- L1:持机 60s + 30s 观察 + 「知道了」
+- L1:持机 60s 触发，同时施加四路感知(提示音 chime + 系统 toast 通知 + 主屏 UI toast + 主屏状态文本切换)，30s 观察窗口
 - L2:持机 120s,橙色全屏 + 声音,可忽略
 - L3:持机 180s 或关摄像头,红色锁屏直到输入原因
 - 黑屏手机(亮度 < 40 且无手-机重叠)不算操作
