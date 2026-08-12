@@ -713,4 +713,93 @@ mod tests {
             "L1 进入 effects 应含 NotifyL1",
         );
     }
+
+    /// 辅助：返回 effects 含某类 tag 的 predicate 检查。用于 regression test 锁定
+    /// FSM transition effect vec 不能漏配（HideOverlay/ShowOverlay/StopVision 等）。
+    fn has_effect<F: Fn(&FsmSideEffect) -> bool>(effects: &[FsmSideEffect], p: F) -> bool {
+        effects.iter().any(p)
+    }
+
+    /// regression：L1 -> FocusActive 中心放下，能HideOverlay (修复过 L3 退不出 bug 同源问题)
+    #[test]
+    fn fsm_regression_l1_to_focus_has_hide_overlay() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true); // l1=3 l2=6 l3=9 release=1
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 3 });
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel1 { .. }));
+        // hold_secs < 1 -> 拉回 FocusActive
+        let (_, eff) = fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 0 });
+        assert!(matches!(fsm.get_state(), SystemState::FocusActive { .. }));
+        assert!(has_effect(&eff, |e| matches!(e, FsmSideEffect::HideOverlay)));
+    }
+
+    /// regression：L2 -> FocusActive 走提放下 Hid Overlay (L2 可忽略的 offens"
+    #[test]
+    fn fsm_regression_l2_to_focus_has_hide_overlay() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        // 状态在 FocusActive，先升级到 L1 hold_secs=3，再升 L2 hold_secs=6
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 3 });
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 6 });
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel2 { .. }));
+        let (_, eff) = fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 0 });
+        assert!(matches!(fsm.get_state(), SystemState::FocusActive { .. }));
+        assert!(has_effect(&eff, |e| matches!(e, FsmSideEffect::HideOverlay)));
+    }
+
+    /// regression：L3 -> FocusActive 放下后 HideOverlay (原 L3 退不出 bug 同类)
+    #[test]
+    fn fsm_regression_l3_to_focus_has_hide_overlay() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 3 }); // L1
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 6 }); // L2
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 9 }); // L3 (first enter)
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel3 { .. }));
+        let (_, eff) = fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 0 });
+        assert!(matches!(fsm.get_state(), SystemState::FocusActive { .. }));
+        assert!(has_effect(&eff, |e| matches!(e, FsmSideEffect::HideOverlay)));
+    }
+
+    /// regression：L1 -> L2 升级需 ShowOverlay (第一次修补 device btn 二次遇到 bug)
+    #[test]
+    fn fsm_regression_l1_to_l2_has_show_overlay() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 3 });
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel1 { .. }));
+        let (_, eff) = fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 6 });
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel2 { .. }));
+        assert!(has_effect(&eff, |e| matches!(e, FsmSideEffect::ShowOverlay)));
+    }
+
+    /// regression：L2 -> L3 升级需 ShowOverlay (enter_l3 第一次路径)
+    #[test]
+    fn fsm_regression_l2_to_l3_has_show_overlay() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 3 });
+        fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 6 });
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel2 { .. }));
+        let (_, eff) = fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 9 });
+        assert!(matches!(fsm.get_state(), SystemState::InterventionLevel3 { .. }));
+        assert!(has_effect(&eff, |e| matches!(e, FsmSideEffect::ShowOverlay)));
+    }
+
+    /// regression：StopSession -> AwaitSessionEndChoice 需 StopVision (同期 ideas.md audit)
+    #[test]
+    fn fsm_regression_stop_session_stops_vision() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true);
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        let (_, eff) = fsm.dispatch(FsmEvent::StopSession);
+        assert!(matches!(fsm.get_state(), SystemState::AwaitSessionEndChoice { .. }));
+        assert!(has_effect(&eff, |e| matches!(e, FsmSideEffect::StopVision)));
+        assert!(has_effect(&eff, |e| matches!(e, FsmSideEffect::StopWhitelistMonitor)));
+    }
 }

@@ -66,7 +66,7 @@
   <img src="docs/assets/intervention-ladder.png" alt="L1/L2/L3 渐进式三阶干预阶梯" width="100%">
 </p>
 
-DeepFlow 不"一上来就锁屏"。它对持机行为做**软→强递进**:**L1** 给 toast、**L2** 来橙色全屏但可忽略、**L3** 才锁屏逼你输入"刷手机的原因"——并把这次事件计入 SQLite,出现到周报"中断"统计中。持机时间越级触发,越级不可逆;放下手机约 1s 后状态恢复。
+DeepFlow 不“一上来就锁屏”。它对持机行为做**软→强递进**：**L1** 同时施加四路提示（提示音 chime + 系统 toast 通知 + 主屏 UI toast + 主屏状态文本由“专注中”切到“干预 L1 · 观察 30s”）——即使在全屏其它应用中也能看到、**L2** 来橙色全屏但可忽略、**L3** 才锁屏逼你输入"刷手机的原因"--并把这次事件计入 SQLite,出现到周报"中断"统计中。持机时间越级触发,越级不可逆;放下手机约 1s 后状态恢复。
 
 > Confessions to yourself, not to a server —— L3 原因只写入本机 SQLite,周报里是匿名统计聚合,格式见 `db::logger::tests::weekly_report_*`。
 
