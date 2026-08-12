@@ -5,8 +5,8 @@
 // Output: <output-dir>/updates.json + <output-dir>/<setup-basename> + .sig
 // (Have <public-base-url> pointing at your production CDN / GH releases path.)
 
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
 
 function main() {
   const [version, setupPath, sigPath, outDir, publicBaseUrl] = process.argv.slice(2);

@@ -9,7 +9,7 @@
   <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-A1A1AA.svg">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-A1A1AA.svg">
   <img alt="Tests" src="https://img.shields.io/badge/tests-77%20passed%20%2F%200%20failed-52525B.svg">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-71717A.svg">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.1-71717A.svg">
   <img alt="Vision" src="https://img.shields.io/badge/Vision-ONNX_YOLO11n-71717A.svg">
 </p>
 
@@ -197,7 +197,7 @@ Setup:`check_setup` / `start_setup` / `open_setup_window`
 
 - **P0**(done):多窗体、FSM、托盘、遮罩、白名单扫描、债务、设置、调试日志
 - **P1**(done):摄像头 + ONNX 检测 + L1–L3 + Setup 预览/ROI、滑窗墙钟 hold
-- **P2**(done):周报 PNG 导出、紧急热键可配、内置语音识别、数据目录四模式、便携标记 / seed 模型复制
+- **P2**(done):周报 PNG 导出、紧急热键可配、数据目录四模式、便携标记 / seed 模型复制
 - **P3**(进行中):进程白名单强制(`whitelist_action`)、摄像头下拉统一、聚焦时长上下限、Setup 可配债务下限、白名单进程搜索、债务结算、模型自管理 UI、周报历史周查看、L3 原因回看、托盘菜单扩展、CSP 收紧、浮钟置顶可调、开机自启 / 系统通知 / 自动更新骨架、关于页版本信息、通知全覆盖
 
 ---

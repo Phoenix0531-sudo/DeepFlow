@@ -19,7 +19,7 @@
   <!-- top eyebrow rule + meta -->
   <line x1="64" y1="58" x2="1136" y2="58" stroke="#27272A" stroke-width="1"/>
   <text x="64" y="42" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-        font-size="14" font-weight="600" fill="#71717A" letter-spacing="3">DEEPFLOW · v0.1.0</text>
+        font-size="14" font-weight="600" fill="#71717A" letter-spacing="3">DEEPFLOW · v0.1.1</text>
   <text x="1136" y="42" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
         font-size="14" fill="#71717A">windows / rust / react / onnx</text>
 
@@ -88,7 +88,7 @@
   <!-- footer rule + meta -->
   <line x1="64" y1="372" x2="1136" y2="372" stroke="#27272A" stroke-width="1"/>
   <text x="64" y="398" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-        font-size="14" font-weight="600" fill="#A1A1AA">0.1.0</text>
+        font-size="14" font-weight="600" fill="#A1A1AA">0.1.1</text>
   <text x="126" y="398" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
         font-size="14" fill="#3F3F46">— MIT licensed · single-binary Windows app</text>
   <text x="1136" y="398" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"

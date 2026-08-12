@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "DeepFlow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.deepflow.app",
   "build": {
     "beforeDevCommand": "npm.cmd run dev",
@@ -47,7 +47,7 @@
   "plugins": {
     "updater": {
       "_comment": "已配置:pubkey 来源于本地 tauri signer generate 生成的密钥对公开部分(可入库)。私钥绝不入库,签名通过环境变量 TAURI_SIGNING_PRIVATE_KEY_PATH 注入(CI 时设)。endpoints 在本仓库保持空数组,正式发布前由持有者填入生产 https URL(参考 docs/updater.md)。本地验证已用 http://localhost:8787/updates.json + dangerousInsecureTransportProtocol=true 跑通 0.1.0->0.1.1 全流程(见 .auto/ideas.md / 文档)。",
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlGRDUxQjgzQjVGOTFBOEIKUldTTEd2bTFneHZWbnk1NVZTUk13UGZObGM4dnBnV1IvMFNVVzNwWFNKTU5rVFJ6cUwrUm83T0UK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0OEVBOTU0MDY5MTI3OTEKUldTUko1RUdWS21PSktQTGhRbGR1YThlZkZOdCs0dDhkSysxU2EzUXV1bk9ja2hLTGpZTlo2L0oK",
       "endpoints": [],
       "windows": {
         "installMode": "passive"
