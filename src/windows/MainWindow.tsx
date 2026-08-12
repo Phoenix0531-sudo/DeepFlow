@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Settings as SettingsIcon,
@@ -151,7 +151,16 @@ export const MainWindow: React.FC = () => {
     return () => window.clearInterval(id);
   }, []);
 
-  useTauriEvent<SystemState>(EVT.fsm, setState, []);
+  // #29：L1 进入时弹前端 toast（与后端系统通知双修，ideas.md L91 audit 关闭）
+  const prevKindRef = useRef<SystemState["kind"] | null>(null);
+  useTauriEvent<SystemState>(EVT.fsm, (next) => {
+    const prevKind = prevKindRef.current;
+    prevKindRef.current = next.kind;
+    if (next.kind === "intervention_level1" && prevKind !== "intervention_level1") {
+      push("L1 · 持机已超阈值，请放下手机专注", "info", 4000);
+    }
+    setState(next);
+  }, []);
   useTauriEvent<number>(EVT.todayFocus, setToday, []);
   useTauriEvent<WhitelistHit[]>(EVT.whitelist, setHits, []);
   useTauriEvent(EVT.openSettings, () => setSettingsOpen(true), []);

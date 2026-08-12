@@ -116,6 +116,8 @@ pub enum FsmSideEffect {
     StopVision,
     PlayChime,
     SevereEscalate,
+    /// L1 进入时发系统通知（受 settings.notifications_enabled gate）
+    NotifyL1,
     /// 前端播放提示音："chime" | "severe" | "inject"
     PlaySound { kind: String },
 }

@@ -691,4 +691,26 @@ mod tests {
         assert!(ok);
         assert!(matches!(fsm.get_state(), SystemState::Idle));
     }
+
+    /// #29：FocusActive 而 VisionPhoneDetectedUpdate 达到 l1_threshold 时，
+    /// 生产路径 L1 进入的 effects 应含 NotifyL1，保证后端发系统轻提示。
+    /// (ideas.md L91 audit 关闭：前述 audit 发 L1 无 toast，本提交后端+前端双修)
+    #[test]
+    fn fsm_l1_enter_emits_notify_l1_effect() {
+        let fsm = SystemFSM::new();
+        fsm.set_test_mode(true); // l1_threshold=3
+        fsm.dispatch(FsmEvent::StartSession { focus_duration_mins: 10 });
+        assert!(matches!(fsm.get_state(), SystemState::FocusActive { .. }));
+
+        let (ok, eff) = fsm.dispatch(FsmEvent::VisionPhoneDetectedUpdate { hold_secs: 3 });
+        assert!(ok, "FocusActive -> L1 应迁移");
+        assert!(
+            matches!(fsm.get_state(), SystemState::InterventionLevel1 { .. }),
+            "状态应进入 L1"
+        );
+        assert!(
+            eff.iter().any(|e| matches!(e, FsmSideEffect::NotifyL1)),
+            "L1 进入 effects 应含 NotifyL1",
+        );
+    }
 }

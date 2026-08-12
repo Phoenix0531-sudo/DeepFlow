@@ -350,6 +350,7 @@ impl SystemFSM {
                             FsmSideEffect::PlaySound {
                                 kind: "chime".into(),
                             },
+                            FsmSideEffect::NotifyL1,
                         ],
                     )
                 } else {

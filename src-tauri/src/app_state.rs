@@ -359,6 +359,10 @@ impl AppState {
                     // #29：L3 升级时发系统通知（若开启）
                     self.maybe_notify(app, "DeepFlow · 严重干预", "手机持有过久，请放回并选择原因");
                 }
+                FsmSideEffect::NotifyL1 => {
+                    // #29：L1 进入时发系统轻提示（受 settings.notifications_enabled）
+                    self.maybe_notify(app, "DeepFlow · L1 提示", "持机已超阈值，请放下手机专注");
+                }
                 FsmSideEffect::PlaySound { kind } => {
                     let _ = app.emit(events::EVT_PLAY_SOUND, &kind);
                     if self.settings_cache.lock().debug_mode {
